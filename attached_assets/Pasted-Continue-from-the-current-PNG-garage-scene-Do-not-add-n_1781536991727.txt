@@ -1,0 +1,182 @@
+Continue from the current PNG garage scene.
+
+Do not add new gameplay systems.
+Do not add save/load, employees, offices, publishers, research boards, custom engines, new contracts, market forecast, or new economy systems.
+
+This pass is only about ambient scene motion and first-screen game feel.
+
+Current status:
+The PNG assets are integrated and the garage looks much better. The scene is larger, contact shadows were added, the duplicate tutorial hint was removed, and the monitor has state-based glow.
+
+Current problem:
+Before the player clicks anything, the scene still feels too static. It looks good, but it does not yet feel alive.
+
+Goal:
+Make the garage feel subtly alive within the first 5 seconds, without distracting from gameplay.
+
+1. Add ambient dust/light particles
+
+Add a very subtle dust mote layer inside the garage area.
+
+Rules:
+
+* particles should be tiny and low opacity
+* slow upward or diagonal drift
+* random staggered animation delays
+* visible mostly near the lamp/monitor light area
+* no heavy snow/confetti effect
+* pointer-events: none
+* CSS-only if possible
+
+2. Add desk lamp flicker
+
+The desk lamp should have:
+
+* soft warm glow
+* very subtle flicker
+* no aggressive flashing
+* should make the desk/computer area feel like the focal point
+
+If the lamp is part of the desk PNG, overlay a radial-gradient glow div above it.
+
+3. Add monitor idle animation
+
+Before first click:
+
+* monitor has a soft breathing glow
+* very subtle screen flicker
+* should draw the eye to the computer
+
+During development:
+
+* monitor flicker becomes slightly more active
+
+Release-ready:
+
+* green pulse remains
+
+Do not add big arrows or extra tutorial text.
+
+4. Add character idle breathing
+
+When no project is active:
+
+* developer sprite should have tiny idle bob/breathing animation
+* movement should be very small
+* no cartoon bouncing
+
+During active project:
+
+* typing frame animation continues
+* add subtle chair/body movement
+
+During tired/worried/celebrating states:
+
+* preserve existing state sprite logic
+
+5. Add small environmental motion
+
+If assets exist:
+
+* fan spin
+* poster slight paper wiggle
+* coffee steam
+* small clock hand tick
+
+If assets do not exist, add only CSS overlays:
+
+* coffee steam near mug/coffee station
+* paper note slight wiggle
+* tiny light shimmer near desk
+
+Do not create ugly placeholder objects.
+
+6. Improve shelf/upgrades affordance subtly
+
+When objective is “Buy an upgrade”:
+
+* shelf gets a soft pulse
+* hover label says “Upgrades”
+* no large orange tutorial label
+
+The objective pill is enough. Do not bring back big intrusive tutorial text.
+
+7. Improve empty floor/global menu affordance
+
+When hovering empty floor:
+
+* optional very subtle cursor change or small tooltip after 1 second:
+  “Click floor for studio menu”
+* do not show this immediately on first load
+* do not compete with the computer CTA
+
+8. Keep performance lightweight
+
+Use CSS animations and simple div overlays.
+Do not introduce canvas.
+Do not introduce Three.js.
+Do not introduce external animation libraries.
+
+Animations should not cause layout thrashing.
+Prefer transform and opacity.
+
+9. Respect reduced motion
+
+Add support for:
+
+@media (prefers-reduced-motion: reduce)
+
+In reduced motion mode:
+
+* disable dust animation
+* disable flicker
+* disable idle bob
+* keep static glows only
+
+10. Preserve existing systems
+
+Do not break:
+
+* PNG asset layout
+* hitboxes
+* project creation
+* development bubbles
+* review reveal
+* live sales feed
+* global studio menu
+* contracts
+* market trends
+* upgrades
+* playtest mode
+* printSessionSummary()
+* runSmokeTest()
+
+11. QA
+
+Run:
+pnpm run typecheck
+
+Manual QA:
+
+* fresh reload
+* scene feels alive before first click
+* computer remains the strongest focal point
+* no duplicate tutorial text
+* no animation feels distracting
+* click computer still works
+* developer typing animation still works
+* shelf upgrade glow appears only when relevant
+* live sales panel still works
+* End Playtest still works
+
+12. Deliverable
+
+Return updated code.
+
+Also report:
+
+* ambient animations added
+* which CSS classes were introduced
+* whether reduced-motion support was added
+* typecheck result
+* manual visual QA result

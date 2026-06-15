@@ -1706,21 +1706,62 @@ export default function GarageScene() {
         @keyframes monitorBug { 0%{opacity:0.28}33%{opacity:0.10}66%{opacity:0.32}100%{opacity:0.28} }
         @keyframes liveDot { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.7)} }
         @keyframes latestBarPulse { 0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)} }
-        .bug-wiggle { animation: bugWiggle 0.4s ease-in-out infinite; display:inline-block; }
+        @keyframes dustDrift {
+          0%   { transform:translate(0,0);          opacity:0 }
+          12%  { opacity:0.75 }
+          80%  { opacity:0.45 }
+          100% { transform:translate(var(--dx,6px),var(--dy,-55px)); opacity:0 }
+        }
+        @keyframes lampFlicker {
+          0%,100% { opacity:0.58 }
+          22%     { opacity:0.50 }
+          44%     { opacity:0.63 }
+          66%     { opacity:0.53 }
+          88%     { opacity:0.61 }
+        }
+        @keyframes steamRise {
+          0%   { transform:translateY(0) scaleX(1);   opacity:0   }
+          18%  { opacity:0.38 }
+          70%  { opacity:0.18 }
+          100% { transform:translateY(-30px) scaleX(1.6); opacity:0 }
+        }
+        @keyframes shelfUpgradePulse {
+          0%,100% { box-shadow:0 0 0 0 rgba(168,85,247,0);  border-color:rgba(168,85,247,0.25) }
+          50%     { box-shadow:0 0 18px 4px rgba(168,85,247,0.18); border-color:rgba(168,85,247,0.55) }
+        }
+        @keyframes paperWiggle {
+          0%,100% { transform:rotate(0deg)   }
+          35%     { transform:rotate(0.7deg) }
+          70%     { transform:rotate(-0.5deg)}
+        }
+        .bug-wiggle   { animation: bugWiggle 0.4s ease-in-out infinite; display:inline-block; }
         .release-pulse { animation: releasePulse 1.2s ease-in-out infinite; }
-        .pill-appear { animation: pillFadeIn 0.3s ease-out both; }
-        .hover-label { animation: hoverLabelIn 0.15s ease-out both; }
-        .monitor-breath { animation: monitorBreath 1.8s ease-in-out infinite; }
-        .monitor-flicker { animation: monitorFlicker 0.55s linear infinite; }
+        .pill-appear  { animation: pillFadeIn 0.3s ease-out both; }
+        .hover-label  { animation: hoverLabelIn 0.15s ease-out both; }
+        .monitor-breath  { animation: monitorBreath  1.8s ease-in-out infinite; }
+        .monitor-flicker { animation: monitorFlicker 0.55s linear   infinite; }
         .monitor-release { animation: monitorRelease 1.0s ease-in-out infinite; }
-        .monitor-bug { animation: monitorBug 0.38s linear infinite; }
-        .live-dot { animation: liveDot 1.1s ease-in-out infinite; }
-        .latest-bar { animation: latestBarPulse 1.1s ease-in-out infinite; }
+        .monitor-bug     { animation: monitorBug     0.38s linear   infinite; }
+        .live-dot     { animation: liveDot       1.1s ease-in-out infinite; }
+        .latest-bar   { animation: latestBarPulse 1.1s ease-in-out infinite; }
+        .dust-particle    { position:absolute; border-radius:50%; pointer-events:none;
+                            animation: dustDrift var(--dur,4s) var(--delay,0s) ease-in infinite; }
+        .lamp-glow-div    { animation: lampFlicker 3.2s ease-in-out infinite; }
+        .steam-wisp       { position:absolute; pointer-events:none; border-radius:40%;
+                            animation: steamRise var(--dur,2.4s) var(--delay,0s) ease-out infinite; }
+        .shelf-upgrade-pulse { animation: shelfUpgradePulse 1.8s ease-in-out infinite;
+                               position:absolute; border-radius:14px; border:2px solid rgba(168,85,247,0.25);
+                               pointer-events:none; }
+        .poster-wiggle    { animation: paperWiggle 5.5s ease-in-out infinite; transform-origin: bottom center; }
         .garage-png-scene { filter: drop-shadow(0 26px 28px rgba(96, 64, 24, .20)); }
-        .scene-layer { position:absolute; height:auto; pointer-events:none; user-select:none; -webkit-user-drag:none; }
+        .scene-layer  { position:absolute; height:auto; pointer-events:none; user-select:none; -webkit-user-drag:none; }
         .scene-hitbox { position:absolute; appearance:none; border:0; padding:0; margin:0; background:transparent; cursor:pointer; }
         .scene-hitbox:focus-visible { outline:2px solid #f59e0b; outline-offset:3px; border-radius:12px; }
-        .hitbox-interactive-shelf:hover ~ .shelf-glow-div { opacity:0.22 !important; }
+        @media (prefers-reduced-motion: reduce) {
+          .dust-particle, .steam-wisp, .lamp-glow-div, .poster-wiggle,
+          .monitor-breath, .monitor-flicker, .monitor-release, .monitor-bug,
+          .live-dot, .latest-bar, .shelf-upgrade-pulse, .bug-wiggle { animation: none !important; }
+        }
       `}</style>
 
       {/* ── PNG SCENE ─────────────────────────────────────────────────────── */}
@@ -1852,6 +1893,88 @@ export default function GarageScene() {
             />
           )}
 
+          {/* ── LAMP WARM GLOW ── */}
+          <div className="lamp-glow-div" style={{
+            position:"absolute",
+            left:`${(760/1760)*100}%`,
+            top:`${(295/990)*100}%`,
+            width:`${(230/1760)*100}%`,
+            height:`${(210/990)*100}%`,
+            background:"radial-gradient(ellipse at 52% 18%, rgba(255,215,90,0.30) 0%, rgba(255,190,60,0.12) 38%, transparent 68%)",
+            pointerEvents:"none",
+            zIndex:3,
+          }}/>
+
+          {/* ── DUST MOTES (lamp/monitor area) ── */}
+          {([
+            {x:792,y:355,s:2,dx:4,dy:-52,dur:4.2,delay:0},
+            {x:830,y:320,s:1,dx:-3,dy:-48,dur:3.8,delay:0.7},
+            {x:868,y:370,s:2,dx:7,dy:-58,dur:4.6,delay:1.5},
+            {x:810,y:390,s:1,dx:-5,dy:-45,dur:3.5,delay:2.2},
+            {x:855,y:342,s:2,dx:3,dy:-62,dur:5.0,delay:0.4},
+            {x:795,y:308,s:1,dx:6,dy:-50,dur:4.1,delay:3.0},
+            {x:840,y:328,s:2,dx:-4,dy:-55,dur:4.8,delay:1.1},
+            {x:878,y:360,s:1,dx:5,dy:-44,dur:3.6,delay:2.8},
+            {x:820,y:380,s:2,dx:-2,dy:-60,dur:4.4,delay:0.9},
+            {x:860,y:315,s:1,dx:4,dy:-50,dur:3.9,delay:3.5},
+            {x:900,y:350,s:2,dx:-6,dy:-48,dur:4.7,delay:1.8},
+            {x:785,y:340,s:1,dx:3,dy:-53,dur:4.3,delay:2.5},
+          ] as const).map((p,i)=>(
+            <div key={i} className="dust-particle" style={{
+              left:`${(p.x/1760)*100}%`,
+              top:`${(p.y/990)*100}%`,
+              width:`${p.s}px`,
+              height:`${p.s}px`,
+              background:`rgba(255,248,210,${0.50+((i%3)*0.10)})`,
+              ["--dx" as string]:`${p.dx}px`,
+              ["--dy" as string]:`${p.dy}px`,
+              ["--dur" as string]:`${p.dur}s`,
+              ["--delay" as string]:`${p.delay}s`,
+              zIndex:14,
+            }}/>
+          ))}
+
+          {/* ── COFFEE STEAM ── */}
+          {upgrades.has("coffeemaker")&&([
+            {x:1248,y:515,dur:2.3,delay:0},
+            {x:1260,y:512,dur:2.8,delay:1.1},
+            {x:1253,y:518,dur:2.5,delay:0.6},
+          ] as const).map((w,i)=>(
+            <div key={i} className="steam-wisp" style={{
+              left:`${(w.x/1760)*100}%`,
+              top:`${(w.y/990)*100}%`,
+              width:"3px",
+              height:"14px",
+              background:"rgba(240,240,240,0.40)",
+              filter:"blur(2px)",
+              ["--dur" as string]:`${w.dur}s`,
+              ["--delay" as string]:`${w.delay}s`,
+              zIndex:9,
+            }}/>
+          ))}
+
+          {/* ── POSTER SUBTLE WIGGLE ── */}
+          <div className="poster-wiggle" style={{
+            position:"absolute",
+            left:`${(565/1760)*100}%`,
+            top:`${(215/990)*100}%`,
+            width:`${(135/1760)*100}%`,
+            height:`${(145/990)*100}%`,
+            zIndex:3,
+            pointerEvents:"none",
+          }}/>
+
+          {/* ── SHELF UPGRADE OBJECTIVE PULSE ── */}
+          {objectiveText==="Buy an upgrade"&&(
+            <div className="shelf-upgrade-pulse" style={{
+              left:`${(1183/1760)*100}%`,
+              top:`${(262/990)*100}%`,
+              width:`${(244/1760)*100}%`,
+              height:`${(368/990)*100}%`,
+              zIndex:11,
+            }}/>
+          )}
+
           <motion.img
             key={developerSprite}
             className="scene-layer"
@@ -1859,8 +1982,16 @@ export default function GarageScene() {
             alt="Developer"
             draggable={false}
             initial={{opacity:0.88}}
-            animate={{opacity:1,y:celebrating?[0,-10,0,-6,0]:working&&developerSpriteState==="working"?[0,-2,0]:0}}
-            transition={{duration:celebrating?0.55:working?0.42:0.2,repeat:celebrating||developerSpriteState==="working"?Infinity:0,ease:"easeInOut"}}
+            animate={{
+              opacity:1,
+              y:celebrating?[0,-10,0,-6,0]:working&&developerSpriteState==="working"?[0,-2,0]:[0,-1.5,0],
+            }}
+            transition={{
+              duration:celebrating?0.55:working?0.42:3.2,
+              repeat:Infinity,
+              ease:"easeInOut",
+              repeatType:"mirror",
+            }}
             style={sceneLayerStyle(developerLayer.x,developerLayer.y,developerLayer.width,developerLayer.z)}
           />
 
