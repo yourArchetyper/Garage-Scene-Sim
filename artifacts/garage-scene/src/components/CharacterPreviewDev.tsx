@@ -20,7 +20,7 @@ const CLOTHING_IDS = ["hoodie_teal","jacket_dark","vest_stripe","sweater_red","s
 const SKIN_IDS     = ["tone1","tone2","tone3","tone4","tone5","tone6"] as const;
 const HAIR_IDS     = ["hair_brown_01","hair_black_01","hair_blond_01","hair_red_01","hair_green_01","hair_green_02","hair_brown_02","hair_brown_03"] as const;
 
-const ALL_LAYER_KEYS: LayerKey[] = ["chair", "clothing", "skin", "hands", "hair"];
+const ALL_LAYER_KEYS: LayerKey[] = ["chair", "body", "clothing", "skin", "hands", "hair"];
 
 const SKIN_SWATCH: Record<SkinTone, string> = {
   tone1: "#f5cba7", tone2: "#e8a87c", tone3: "#c68642",
@@ -117,7 +117,7 @@ export function CharacterPreviewDev() {
   const [open, setOpen]           = useState(false);
   const [customization, setCustomization] = useState<CharacterCustomization>(DEFAULT_CUSTOMIZATION);
   const [layerVis, setLayerVis]   = useState<Record<LayerKey, boolean>>({
-    chair: true, clothing: true, skin: true, hands: true, hair: true,
+    chair: true, body: true, clothing: true, skin: true, hands: true, hair: true,
   });
   const [showBounds, setShowBounds]               = useState(false);
   const [transforms, setTransforms]               = useState<LayerTransforms>({ ...DEFAULT_LAYER_TRANSFORMS });
@@ -144,12 +144,13 @@ export function CharacterPreviewDev() {
   const copyCalibrationJSON = () => {
     const payload = {
       frame:         { width: 512, height: 512 },
-      layerOrder:    ["chair", "skin", "clothing", "hands", "hair"],
+      layerOrder:    ["chair", "body", "clothing", "skin", "hands", "hair"],
       transforms,
       selectedItems: {
         chair:    customization.chair,
-        skin:     customization.skin,
+        body:     `body_base_${customization.skin}`,
         clothing: customization.clothing,
+        skin:     customization.skin,
         hands:    customization.skin,
         hair:     customization.hair,
       },
@@ -181,18 +182,17 @@ export function CharacterPreviewDev() {
             CHARACTER LAYER CALIBRATION
           </div>
 
-          {/* ── Base body warning (always visible) ── */}
+          {/* ── Base body layer status ── */}
           <div style={{
-            background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)",
+            background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)",
             borderRadius: "0.4rem", padding: "0.4rem 0.5rem",
           }}>
-            <div style={{ fontSize: "7px", color: "#fca5a5", fontWeight: 700, marginBottom: "0.2rem" }}>
-              ⚠ NO DEDICATED BASE BODY LAYER
+            <div style={{ fontSize: "7px", color: "#86efac", fontWeight: 700, marginBottom: "0.2rem" }}>
+              ✓ BASE BODY LAYER PRESENT
             </div>
             <div style={{ fontSize: "6.5px", color: "#9ca3af", lineHeight: 1.5 }}>
-              Clothing is acting as the body. If neck/head/arms do not connect
-              cleanly, generate a dedicated base seated-at-PC body layer before
-              enabling customization in the main scene.
+              body_base_tone*.png (6 tones) — layer 2, auto-matches skin tone.
+              Calibrate using the BODY tab. Toggle visibility to check layering.
             </div>
           </div>
 

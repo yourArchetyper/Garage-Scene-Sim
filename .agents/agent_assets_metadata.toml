@@ -1,0 +1,38 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "N6NJxkSp4ek2_swTQlyxa"
+uri = "file://attached_assets/generated_images/body_base_tone1.png"
+type = "image"
+title = "body base tone1"
+
+[[generated]]
+id = "jbY9JMffBea-bfvcu8Bdq"
+uri = "file://attached_assets/generated_images/body_base_tone2.png"
+type = "image"
+title = "body base tone2"
+
+[[generated]]
+id = "wiuIMPFi5m029vkY2OVQR"
+uri = "file://attached_assets/generated_images/body_base_tone3.png"
+type = "image"
+title = "body base tone3"
+
+[[generated]]
+id = "82aNRmBErN_hQONI7ZxO_"
+uri = "file://attached_assets/generated_images/body_base_tone4.png"
+type = "image"
+title = "body base tone4"
+
+[[generated]]
+id = "OdV60LI8scuIOA2NXC9-B"
+uri = "file://attached_assets/generated_images/body_base_tone5.png"
+type = "image"
+title = "body base tone5"
+
+[[generated]]
+id = "wBGVwCZyXaC6moPLf0g6d"
+uri = "file://attached_assets/generated_images/body_base_tone6.png"
+type = "image"
+title = "body base tone6"

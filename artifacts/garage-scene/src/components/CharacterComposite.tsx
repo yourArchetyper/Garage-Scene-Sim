@@ -21,7 +21,7 @@ export const DEFAULT_CUSTOMIZATION: CharacterCustomization = {
 
 export type CharWorkState = "idle" | "working" | "tired" | "celebrating";
 
-export type LayerKey = "chair" | "clothing" | "skin" | "hands" | "hair";
+export type LayerKey = "chair" | "body" | "clothing" | "skin" | "hands" | "hair";
 
 export type LayerStatus = { name: LayerKey; src: string; valid: boolean; reason?: string };
 
@@ -40,6 +40,7 @@ export const DEFAULT_LAYER_TRANSFORM: LayerTransform = { x: 0, y: 0, scale: 1, r
 
 export const DEFAULT_LAYER_TRANSFORMS: LayerTransforms = {
   chair:    { ...DEFAULT_LAYER_TRANSFORM },
+  body:     { ...DEFAULT_LAYER_TRANSFORM },
   clothing: { ...DEFAULT_LAYER_TRANSFORM },
   skin:     { ...DEFAULT_LAYER_TRANSFORM },
   hands:    { ...DEFAULT_LAYER_TRANSFORM },
@@ -51,6 +52,7 @@ export const DEFAULT_LAYER_TRANSFORMS: LayerTransforms = {
 export const CHARACTER_BASE = "/character";
 
 export function chairSrc(id: CharacterCustomization["chair"])       { return `${CHARACTER_BASE}/chair/${id}.png`; }
+export function bodySrc(tone: SkinTone)                             { return `${CHARACTER_BASE}/body/body_base_${tone}.png`; }
 export function clothingSrc(id: CharacterCustomization["clothing"]) { return `${CHARACTER_BASE}/clothing/${id}.png`; }
 export function hairSrc(id: CharacterCustomization["hair"])         { return `${CHARACTER_BASE}/hair/${id}.png`; }
 export function headSrc(tone: SkinTone)                             { return `${CHARACTER_BASE}/skin/head_${tone}.png`; }
@@ -99,6 +101,12 @@ if (typeof window !== "undefined") {
       { name: "chair",    src: `${CHARACTER_BASE}/chair/chair_beige.png` },
       { name: "chair",    src: `${CHARACTER_BASE}/chair/chair_red.png` },
       { name: "chair",    src: `${CHARACTER_BASE}/chair/chair_green.png` },
+      { name: "body",     src: `${CHARACTER_BASE}/body/body_base_tone1.png` },
+      { name: "body",     src: `${CHARACTER_BASE}/body/body_base_tone2.png` },
+      { name: "body",     src: `${CHARACTER_BASE}/body/body_base_tone3.png` },
+      { name: "body",     src: `${CHARACTER_BASE}/body/body_base_tone4.png` },
+      { name: "body",     src: `${CHARACTER_BASE}/body/body_base_tone5.png` },
+      { name: "body",     src: `${CHARACTER_BASE}/body/body_base_tone6.png` },
       { name: "clothing", src: `${CHARACTER_BASE}/clothing/hoodie_teal.png` },
       { name: "clothing", src: `${CHARACTER_BASE}/clothing/jacket_dark.png` },
       { name: "clothing", src: `${CHARACTER_BASE}/clothing/vest_stripe.png` },
@@ -145,6 +153,7 @@ if (typeof window !== "undefined") {
 
     const defaultLayers: Array<{ name: LayerKey; src: string }> = [
       { name: "chair",    src: chairSrc("chair_black") },
+      { name: "body",     src: bodySrc("tone1") },
       { name: "clothing", src: clothingSrc("hoodie_teal") },
       { name: "skin",     src: headSrc("tone1") },
       { name: "hands",    src: handGrabSrc("tone1") },
@@ -165,6 +174,7 @@ if (typeof window !== "undefined") {
 
 export const LAYER_COLORS: Record<LayerKey, string> = {
   chair:    "#3b82f6",
+  body:     "#ec4899",
   clothing: "#f59e0b",
   skin:     "#f97316",
   hands:    "#8b5cf6",
@@ -270,6 +280,7 @@ export function CharacterComposite({
 
     const requiredLayers: Array<{ name: LayerKey; src: string }> = [
       { name: "chair",    src: chairSrc(chair) },
+      { name: "body",     src: bodySrc(skin) },
       { name: "clothing", src: clothingSrc(clothing) },
       { name: "skin",     src: headSrc(skin) },
       { name: "hands",    src: handGrabSrc(skin) },
@@ -312,10 +323,11 @@ export function CharacterComposite({
       transition={{ duration: bobDur, repeat: Infinity, ease: "easeInOut", repeatType: "mirror" }}
     >
       <LayerImg src={chairSrc(chair)}       alt="" zIndex={1} layerKey="chair"    visible={vis("chair")}    showBounds={devShowBounds} transform={tfm("chair")} />
-      <LayerImg src={clothingSrc(clothing)} alt="" zIndex={2} layerKey="clothing" visible={vis("clothing")} showBounds={devShowBounds} transform={tfm("clothing")} />
-      <LayerImg src={headSrc(skin)}         alt="" zIndex={3} layerKey="skin"     visible={vis("skin")}     showBounds={devShowBounds} transform={tfm("skin")} />
-      <LayerImg src={handSrc}               alt="" zIndex={4} layerKey="hands"    visible={vis("hands")}    showBounds={devShowBounds} transform={tfm("hands")} />
-      <LayerImg src={hairSrc(hair)}         alt="" zIndex={5} layerKey="hair"     visible={vis("hair")}     showBounds={devShowBounds} transform={tfm("hair")} />
+      <LayerImg src={bodySrc(skin)}         alt="" zIndex={2} layerKey="body"     visible={vis("body")}     showBounds={devShowBounds} transform={tfm("body")} />
+      <LayerImg src={clothingSrc(clothing)} alt="" zIndex={3} layerKey="clothing" visible={vis("clothing")} showBounds={devShowBounds} transform={tfm("clothing")} />
+      <LayerImg src={headSrc(skin)}         alt="" zIndex={4} layerKey="skin"     visible={vis("skin")}     showBounds={devShowBounds} transform={tfm("skin")} />
+      <LayerImg src={handSrc}               alt="" zIndex={5} layerKey="hands"    visible={vis("hands")}    showBounds={devShowBounds} transform={tfm("hands")} />
+      <LayerImg src={hairSrc(hair)}         alt="" zIndex={6} layerKey="hair"     visible={vis("hair")}     showBounds={devShowBounds} transform={tfm("hair")} />
     </motion.div>
   );
 }

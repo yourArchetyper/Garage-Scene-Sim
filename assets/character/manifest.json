@@ -1,8 +1,9 @@
 {
   "frame": { "width": 512, "height": 512 },
-  "layerOrder": ["chair", "skin", "clothing", "hands", "hair"],
+  "layerOrder": ["chair", "body", "clothing", "skin", "hands", "hair"],
   "defaults": {
     "chair": "chair_black",
+    "body": "body_tone1",
     "clothing": "hoodie_teal",
     "skin": "tone1",
     "hands": "tone1",
@@ -15,6 +16,13 @@
     "chair_beige":    { "id": "chair_beige",    "type": "chair",    "file": "chair/chair_beige.png",       "frame": { "width": 512, "height": 512 } },
     "chair_red":      { "id": "chair_red",      "type": "chair",    "file": "chair/chair_red.png",         "frame": { "width": 512, "height": 512 } },
     "chair_green":    { "id": "chair_green",    "type": "chair",    "file": "chair/chair_green.png",       "frame": { "width": 512, "height": 512 } },
+
+    "body_tone1":     { "id": "body_tone1",     "type": "body",     "file": "body/body_base_tone1.png",    "frame": { "width": 512, "height": 512 } },
+    "body_tone2":     { "id": "body_tone2",     "type": "body",     "file": "body/body_base_tone2.png",    "frame": { "width": 512, "height": 512 } },
+    "body_tone3":     { "id": "body_tone3",     "type": "body",     "file": "body/body_base_tone3.png",    "frame": { "width": 512, "height": 512 } },
+    "body_tone4":     { "id": "body_tone4",     "type": "body",     "file": "body/body_base_tone4.png",    "frame": { "width": 512, "height": 512 } },
+    "body_tone5":     { "id": "body_tone5",     "type": "body",     "file": "body/body_base_tone5.png",    "frame": { "width": 512, "height": 512 } },
+    "body_tone6":     { "id": "body_tone6",     "type": "body",     "file": "body/body_base_tone6.png",    "frame": { "width": 512, "height": 512 } },
 
     "hoodie_teal":    { "id": "hoodie_teal",    "type": "clothing", "file": "clothing/hoodie_teal.png",    "frame": { "width": 512, "height": 512 } },
     "jacket_dark":    { "id": "jacket_dark",    "type": "clothing", "file": "clothing/jacket_dark.png",    "frame": { "width": 512, "height": 512 } },
