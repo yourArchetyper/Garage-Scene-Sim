@@ -1,0 +1,224 @@
+Continue from the current modular character customization dev preview.
+
+Do not add localStorage.
+Do not enable character customization in the main game yet.
+Do not add new gameplay systems.
+
+Current status:
+
+* SHOW_CHARACTER_CUSTOMIZATION = false
+* SHOW_CHARACTER_PREVIEW_DEV = true
+* CharacterPreviewDev exists
+* CharacterComposite validates 512×512 PNG layers
+* all assets technically pass size/alpha validation
+* the dev preview can show chair / skin / clothing / hands / hair layers
+* there is no separate base body layer; clothing currently acts as body
+
+Problem:
+Technical validation does not prove the modular character visually aligns. We need a calibration pass to verify and tune layer positioning before enabling it in the garage scene.
+
+Goal:
+Add a dev-only alignment calibration system for CharacterComposite so we can inspect and adjust each layer visually.
+
+1. Keep main scene clean
+
+Keep:
+
+const SHOW_CHARACTER_CUSTOMIZATION = false;
+
+Do not render the modular character in the main Level 1 scene.
+Do not show the Customize button to normal players.
+
+2. Keep dev preview enabled
+
+Keep:
+
+const SHOW_CHARACTER_PREVIEW_DEV = true;
+
+The dev preview is the only place where the character composite should render.
+
+3. Add per-layer transform controls
+
+Inside CharacterPreviewDev, add dev-only controls for each layer:
+
+* x offset
+* y offset
+* scale
+* rotation
+* opacity
+
+Layers:
+
+* chair
+* skin
+* clothing
+* hands
+* hair
+
+Default values:
+
+{
+chair:    { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+skin:     { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+clothing: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+hands:    { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+hair:     { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 }
+}
+
+Controls should update the preview live.
+
+4. Apply transforms in CharacterComposite
+
+Each layer should apply its calibration transform:
+
+transform:
+translate(var(--x), var(--y))
+scale(var(--scale))
+rotate(var(--rotation))
+
+Do not change the 512×512 frame.
+Transforms only move visible art inside the stable frame.
+
+5. Add “Reset Layer” and “Reset All”
+
+In the dev preview:
+
+* Reset Layer resets one layer to default transform
+* Reset All resets all layer transforms
+
+6. Add “Copy Calibration JSON”
+
+Add a button:
+
+Copy Calibration JSON
+
+It should copy a JSON object to clipboard:
+
+{
+"frame": { "width": 512, "height": 512 },
+"layerOrder": ["chair", "skin", "clothing", "hands", "hair"],
+"transforms": {
+"chair": { "x": 0, "y": 0, "scale": 1, "rotation": 0, "opacity": 1 },
+...
+},
+"selectedItems": {
+"chair": "...",
+"skin": "...",
+"clothing": "...",
+"hands": "...",
+"hair": "..."
+}
+}
+
+Also log it to console.
+
+Do not save this to localStorage yet.
+
+7. Add alignment checklist in dev preview
+
+Show a small checklist:
+
+* Chair sits behind body
+* Clothing/body aligns with chair
+* Skin/head/neck connects to clothing
+* Hands align with sleeves/keyboard pose
+* Hair sits on head
+* No floating pieces
+* No white boxes
+* Composite reads as one seated character
+
+These can be manual checkboxes for now.
+
+8. Add validity warning for missing base body
+
+If there is no real base-body layer, show this warning clearly:
+
+“Warning: no dedicated base body layer exists. Clothing is acting as the body. If neck/head/arms do not connect cleanly, generate a dedicated base seated-at-PC body layer before enabling customization.”
+
+Do not hide this warning until a real base/body layer type exists in the manifest.
+
+9. Do not add base body layer slot unless an asset exists
+
+Do not create a fake body layer.
+Do not create placeholder art.
+
+If a real base body asset exists:
+
+* add it as a layer between chair and clothing
+* update manifest
+* update layer order:
+  chair → baseBody → skin → clothing → hands → hair
+
+If no real base body asset exists:
+
+* keep current layers
+* report that base body is missing
+
+10. Add screenshot/debug guidance
+
+Add a small note in the dev panel:
+
+“After tuning, take a screenshot of this preview before enabling main-scene customization.”
+
+Do not enable customization automatically.
+
+11. Preserve existing game systems
+
+Do not break:
+
+* Level 1 scene
+* computer hitbox
+* project creation
+* development loop
+* review reveal
+* live sales
+* global menu
+* upgrades
+* contracts
+* market trends
+* playtest mode
+* printSessionSummary()
+* runSmokeTest()
+
+12. Typecheck
+
+Run:
+
+pnpm run typecheck
+
+Fix all errors.
+
+13. Manual QA
+
+Verify:
+
+Main game:
+
+* no modular character appears
+* no Customize button appears
+* Level 1 scene remains clean
+* game loop still works
+
+Dev preview:
+
+* preview opens
+* layer toggles work
+* selectors work
+* x/y/scale/rotation controls work
+* opacity controls work
+* reset layer works
+* reset all works
+* copy calibration JSON works
+* no partial broken character appears as valid
+* missing base body warning is visible if no base body exists
+
+14. Report
+
+When done, report:
+
+* whether calibration controls were added
+* whether Copy Calibration JSON works
+* whether a base body asset exists
+* whether customization remains disabled in main scene
+* typecheck result
+* manual QA result

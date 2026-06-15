@@ -25,6 +25,27 @@ export type LayerKey = "chair" | "clothing" | "skin" | "hands" | "hair";
 
 export type LayerStatus = { name: LayerKey; src: string; valid: boolean; reason?: string };
 
+/** Per-layer calibration transform applied inside the stable 512×512 frame. */
+export type LayerTransform = {
+  x:        number;  // px offset
+  y:        number;  // px offset
+  scale:    number;  // 1 = no change
+  rotation: number;  // degrees
+  opacity:  number;  // 0–1
+};
+
+export type LayerTransforms = Record<LayerKey, LayerTransform>;
+
+export const DEFAULT_LAYER_TRANSFORM: LayerTransform = { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 };
+
+export const DEFAULT_LAYER_TRANSFORMS: LayerTransforms = {
+  chair:    { ...DEFAULT_LAYER_TRANSFORM },
+  clothing: { ...DEFAULT_LAYER_TRANSFORM },
+  skin:     { ...DEFAULT_LAYER_TRANSFORM },
+  hands:    { ...DEFAULT_LAYER_TRANSFORM },
+  hair:     { ...DEFAULT_LAYER_TRANSFORM },
+};
+
 // ── Asset URL helpers ────────────────────────────────────────────────────────
 
 export const CHARACTER_BASE = "/character";
@@ -150,25 +171,9 @@ export const LAYER_COLORS: Record<LayerKey, string> = {
   hair:     "#10b981",
 };
 
-// ── Component ────────────────────────────────────────────────────────────────
+// ── Internal layer renderer ───────────────────────────────────────────────────
 
-interface Props {
-  customization: CharacterCustomization;
-  workState:     CharWorkState;
-  typingFrame?:  0 | 1;
-  style?:        CSSProperties;
-  className?:    string;
-  /** Dev only: bypass null-guard so all layers render regardless of validation state */
-  devMode?:          boolean;
-  /** Dev only: per-layer visibility overrides */
-  devLayerVis?:      Partial<Record<LayerKey, boolean>>;
-  /** Dev only: draw 512×512 frame outline on each layer */
-  devShowBounds?:    boolean;
-  /** Dev only: called whenever validation results change */
-  onValidationChange?: (statuses: LayerStatus[]) => void;
-}
-
-const layerStyle: CSSProperties = {
+const baseImgStyle: CSSProperties = {
   position:      "absolute",
   inset:         0,
   width:         "100%",
@@ -176,18 +181,29 @@ const layerStyle: CSSProperties = {
   objectFit:     "contain",
   pointerEvents: "none",
   userSelect:    "none",
+  transformOrigin: "center center",
 };
 
 function LayerImg({
-  src, alt, zIndex, visible, showBounds, layerKey,
+  src, alt, zIndex, visible, showBounds, layerKey, transform,
 }: {
   src: string; alt: string; zIndex: number;
   visible: boolean; showBounds: boolean; layerKey: LayerKey;
+  transform?: LayerTransform;
 }) {
   if (!visible) return null;
+
+  const t = transform ?? DEFAULT_LAYER_TRANSFORM;
+  const cssTransform = `translate(${t.x}px, ${t.y}px) scale(${t.scale}) rotate(${t.rotation}deg)`;
+
   return (
     <div style={{ position: "absolute", inset: 0, zIndex }}>
-      <img src={src} alt={alt} draggable={false} style={layerStyle} />
+      <img
+        src={src}
+        alt={alt}
+        draggable={false}
+        style={{ ...baseImgStyle, transform: cssTransform, opacity: t.opacity }}
+      />
       {showBounds && (
         <>
           <div style={{
@@ -212,9 +228,30 @@ function LayerImg({
   );
 }
 
+// ── Component ────────────────────────────────────────────────────────────────
+
+interface Props {
+  customization: CharacterCustomization;
+  workState:     CharWorkState;
+  typingFrame?:  0 | 1;
+  style?:        CSSProperties;
+  className?:    string;
+  /** Dev only: bypass null-guard so layers render regardless of validation state */
+  devMode?:            boolean;
+  /** Dev only: per-layer visibility overrides */
+  devLayerVis?:        Partial<Record<LayerKey, boolean>>;
+  /** Dev only: draw 512×512 frame outline on each layer */
+  devShowBounds?:      boolean;
+  /** Dev only: per-layer calibration transforms applied inside the frame */
+  devLayerTransforms?: Partial<LayerTransforms>;
+  /** Dev only: called whenever validation results change */
+  onValidationChange?: (statuses: LayerStatus[]) => void;
+}
+
 export function CharacterComposite({
   customization, workState, typingFrame = 0, style, className,
-  devMode = false, devLayerVis, devShowBounds = false, onValidationChange,
+  devMode = false, devLayerVis, devShowBounds = false,
+  devLayerTransforms, onValidationChange,
 }: Props) {
   const { chair, clothing, skin, hair } = customization;
 
@@ -258,6 +295,7 @@ export function CharacterComposite({
   }
 
   const vis = (key: LayerKey) => devLayerVis ? (devLayerVis[key] ?? true) : true;
+  const tfm = (key: LayerKey) => devLayerTransforms?.[key];
 
   const bobY = workState === "celebrating"
     ? [0, -10, 0, -6, 0]
@@ -273,11 +311,11 @@ export function CharacterComposite({
       animate={{ y: bobY }}
       transition={{ duration: bobDur, repeat: Infinity, ease: "easeInOut", repeatType: "mirror" }}
     >
-      <LayerImg src={chairSrc(chair)}       alt="" zIndex={1} layerKey="chair"    visible={vis("chair")}    showBounds={devShowBounds} />
-      <LayerImg src={clothingSrc(clothing)} alt="" zIndex={2} layerKey="clothing" visible={vis("clothing")} showBounds={devShowBounds} />
-      <LayerImg src={headSrc(skin)}         alt="" zIndex={3} layerKey="skin"     visible={vis("skin")}     showBounds={devShowBounds} />
-      <LayerImg src={handSrc}               alt="" zIndex={4} layerKey="hands"    visible={vis("hands")}    showBounds={devShowBounds} />
-      <LayerImg src={hairSrc(hair)}         alt="" zIndex={5} layerKey="hair"     visible={vis("hair")}     showBounds={devShowBounds} />
+      <LayerImg src={chairSrc(chair)}       alt="" zIndex={1} layerKey="chair"    visible={vis("chair")}    showBounds={devShowBounds} transform={tfm("chair")} />
+      <LayerImg src={clothingSrc(clothing)} alt="" zIndex={2} layerKey="clothing" visible={vis("clothing")} showBounds={devShowBounds} transform={tfm("clothing")} />
+      <LayerImg src={headSrc(skin)}         alt="" zIndex={3} layerKey="skin"     visible={vis("skin")}     showBounds={devShowBounds} transform={tfm("skin")} />
+      <LayerImg src={handSrc}               alt="" zIndex={4} layerKey="hands"    visible={vis("hands")}    showBounds={devShowBounds} transform={tfm("hands")} />
+      <LayerImg src={hairSrc(hair)}         alt="" zIndex={5} layerKey="hair"     visible={vis("hair")}     showBounds={devShowBounds} transform={tfm("hair")} />
     </motion.div>
   );
 }
