@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CharacterComposite, DEFAULT_CUSTOMIZATION, type CharacterCustomization, type CharWorkState } from "../components/CharacterComposite";
+import { CharacterPreviewDev } from "../components/CharacterPreviewDev";
 import { createGameEventBus, type GameEvent, type WeeklySalesPoint } from "../simulation/gameEvents";
 import {
   createActiveMarketGame,
@@ -34,6 +35,8 @@ const SHOW_DEVELOPER_SPRITE = false;
 // Set true only when all required default layers are confirmed valid (512x512 transparent PNGs, all layers present).
 // Keeping false hides broken partial renders (e.g. floating hairpiece) until assets are production-ready.
 const SHOW_CHARACTER_CUSTOMIZATION = false;
+// Dev-only: isolated preview panel for inspecting layer alignment. Never shown to players.
+const SHOW_CHARACTER_PREVIEW_DEV = true;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: ANALYTICS
@@ -3510,6 +3513,9 @@ export default function GarageScene() {
           )}
         </div>
       )}
+
+      {/* ── CHARACTER PREVIEW DEV (dev-only, never player-facing) ─────────── */}
+      {SHOW_CHARACTER_PREVIEW_DEV&&<CharacterPreviewDev />}
 
       {/* ── PLAYTEST MODE ──────────────────────────────────────────────────── */}
       {PLAYTEST_MODE&&(

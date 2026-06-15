@@ -1,0 +1,190 @@
+Do not add localStorage save yet.
+
+This pass is only about proving that modular character customization visually composes correctly.
+
+Current status:
+
+* SHOW_CHARACTER_CUSTOMIZATION is false by default.
+* Character assets are 512×512.
+* Character assets have alpha channels.
+* Manifest was updated.
+* CharacterComposite has validation.
+* Typecheck passes.
+
+Problem:
+Passing technical validation does not prove the layered character looks correct. The previous render showed only a floating hairpiece / partial character. Now we need a controlled visual preview to verify layer alignment before enabling it in the main scene.
+
+Goal:
+Add a safe development-only character preview mode that lets us inspect the layered character composition without putting broken visuals into the main garage scene.
+
+1. Keep customization disabled in the main scene
+
+Keep:
+
+const SHOW_CHARACTER_CUSTOMIZATION = false;
+
+Do not render the modular character in the garage scene yet.
+
+Do not show the Customize button to normal players yet.
+
+2. Add dev-only Character Preview panel
+
+Add a separate dev-only preview panel gated by:
+
+const SHOW_CHARACTER_PREVIEW_DEV = true;
+
+This panel can appear in the bottom-right or as a small modal opened by a dev button.
+
+It should render CharacterComposite in isolation on a neutral checker/transparent-preview background.
+
+Purpose:
+
+* inspect layer alignment
+* test clothing/hair/skin/chair combinations
+* verify no floating hair
+* verify no white boxes
+* verify all required layers appear
+
+3. Add layer visibility toggles
+
+Inside the dev preview, add checkboxes:
+
+* Chair
+* Skin
+* Clothing
+* Hands
+* Hair
+
+Each checkbox toggles that layer on/off.
+
+This lets us verify which layer is misplaced or invisible.
+
+4. Add customization selectors
+
+Add minimal selectors:
+
+* Chair selector
+* Skin selector
+* Clothing selector
+* Hands selector
+* Hair selector
+
+Populate from manifest.json.
+
+Changing selector should update the preview immediately.
+
+No saving.
+No localStorage.
+No player-facing customization screen yet.
+
+5. Add layer debug outlines
+
+In dev preview only, allow:
+
+SHOW_LAYER_BOUNDS = true;
+
+When enabled:
+
+* draw a thin colored outline around each layer’s full 512×512 frame
+* optionally show layer name in the corner
+
+This is only for debugging alignment.
+
+Do not show these outlines in normal game.
+
+6. Detect partial render failures
+
+If CharacterComposite cannot render a complete character:
+
+* show warning in preview:
+  “Invalid composite: missing or invisible layer”
+* list which layers failed
+
+Do not render only hair or only clothing as if it is valid.
+
+Required visible layers for a valid preview:
+
+* chair
+* skin or body/base
+* clothing
+* hands
+* hair
+
+If there is no true body/base layer, report that explicitly.
+
+7. Verify whether a base body layer is missing
+
+Inspect current assets.
+
+If there is no body/base layer that connects:
+
+* head/neck
+* torso
+* arms/hands
+* clothing
+* chair
+
+Then report:
+“The customization system has parts, but no complete base pose. A base seated-at-PC body layer is required.”
+
+Do not fake this with hair + clothing only.
+
+8. Keep main game clean
+
+Do not change:
+
+* Level 1 room
+* computer hitbox
+* project creation
+* development loop
+* review reveal
+* live sales
+* global menu
+* upgrades
+* contracts
+* market trends
+* playtest mode
+* printSessionSummary()
+* runSmokeTest()
+
+9. Typecheck
+
+Run:
+
+pnpm run typecheck
+
+Fix all errors.
+
+10. Manual QA
+
+Verify:
+
+Main scene:
+
+* no floating hairpiece
+* no broken character
+* no Customize button in normal mode
+* computer click works
+* game loop works
+
+Dev preview:
+
+* preview opens
+* all layer selectors work
+* layer toggles work
+* all selected layers render
+* no white square artifacts
+* layer outlines show correct 512×512 frames
+* invalid composites warn instead of rendering partial junk
+
+11. Report
+
+When done, report:
+
+* whether dev preview was added
+* whether all layers visually align
+* whether a base body layer exists
+* which layer category is missing or misaligned
+* whether CharacterComposite is still disabled in main scene
+* typecheck result
+* manual QA result

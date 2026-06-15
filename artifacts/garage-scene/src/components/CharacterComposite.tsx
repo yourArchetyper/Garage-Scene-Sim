@@ -21,33 +21,35 @@ export const DEFAULT_CUSTOMIZATION: CharacterCustomization = {
 
 export type CharWorkState = "idle" | "working" | "tired" | "celebrating";
 
+export type LayerKey = "chair" | "clothing" | "skin" | "hands" | "hair";
+
+export type LayerStatus = { name: LayerKey; src: string; valid: boolean; reason?: string };
+
 // ── Asset URL helpers ────────────────────────────────────────────────────────
 
-const BASE = "/character";
+export const CHARACTER_BASE = "/character";
 
-function chairSrc(id: CharacterCustomization["chair"])       { return `${BASE}/chair/${id}.png`; }
-function clothingSrc(id: CharacterCustomization["clothing"]) { return `${BASE}/clothing/${id}.png`; }
-function hairSrc(id: CharacterCustomization["hair"])         { return `${BASE}/hair/${id}.png`; }
-function headSrc(tone: SkinTone)                             { return `${BASE}/skin/head_${tone}.png`; }
-function handGrabSrc(tone: SkinTone)                         { return `${BASE}/hands/hand_grab_${tone}.png`; }
-function handFistSrc(tone: SkinTone)                         { return `${BASE}/hands/hand_fist_${tone}.png`; }
+export function chairSrc(id: CharacterCustomization["chair"])       { return `${CHARACTER_BASE}/chair/${id}.png`; }
+export function clothingSrc(id: CharacterCustomization["clothing"]) { return `${CHARACTER_BASE}/clothing/${id}.png`; }
+export function hairSrc(id: CharacterCustomization["hair"])         { return `${CHARACTER_BASE}/hair/${id}.png`; }
+export function headSrc(tone: SkinTone)                             { return `${CHARACTER_BASE}/skin/head_${tone}.png`; }
+export function handGrabSrc(tone: SkinTone)                         { return `${CHARACTER_BASE}/hands/hand_grab_${tone}.png`; }
+export function handFistSrc(tone: SkinTone)                         { return `${CHARACTER_BASE}/hands/hand_fist_${tone}.png`; }
 
 // ── Layer validation ─────────────────────────────────────────────────────────
 
-const REQUIRED_FRAME = { width: 512, height: 512 };
-
-type LayerStatus = { name: string; src: string; valid: boolean; reason?: string };
+export const REQUIRED_FRAME = { width: 512, height: 512 };
 
 function probeImage(src: string): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onload  = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
     img.onerror = () => reject(new Error(`Failed to load ${src}`));
     img.src = src;
   });
 }
 
-async function validateLayer(name: string, src: string): Promise<LayerStatus> {
+export async function validateLayerSrc(name: LayerKey, src: string): Promise<LayerStatus> {
   try {
     const { width, height } = await probeImage(src);
     if (width !== REQUIRED_FRAME.width || height !== REQUIRED_FRAME.height) {
@@ -69,65 +71,65 @@ declare global {
 
 if (typeof window !== "undefined") {
   window.validateCharacterAssets = async () => {
-    const allAssets: Array<{ name: string; src: string }> = [
-      { name: "chair/chair_black",       src: `${BASE}/chair/chair_black.png` },
-      { name: "chair/chair_gray",        src: `${BASE}/chair/chair_gray.png` },
-      { name: "chair/chair_blue",        src: `${BASE}/chair/chair_blue.png` },
-      { name: "chair/chair_beige",       src: `${BASE}/chair/chair_beige.png` },
-      { name: "chair/chair_red",         src: `${BASE}/chair/chair_red.png` },
-      { name: "chair/chair_green",       src: `${BASE}/chair/chair_green.png` },
-      { name: "clothing/hoodie_teal",    src: `${BASE}/clothing/hoodie_teal.png` },
-      { name: "clothing/jacket_dark",    src: `${BASE}/clothing/jacket_dark.png` },
-      { name: "clothing/vest_stripe",    src: `${BASE}/clothing/vest_stripe.png` },
-      { name: "clothing/sweater_red",    src: `${BASE}/clothing/sweater_red.png` },
-      { name: "clothing/shirt_beige",    src: `${BASE}/clothing/shirt_beige.png` },
-      { name: "clothing/cardigan_green", src: `${BASE}/clothing/cardigan_green.png` },
-      { name: "clothing/hoodie_black",   src: `${BASE}/clothing/hoodie_black.png` },
-      { name: "clothing/tshirt_beige",   src: `${BASE}/clothing/tshirt_beige.png` },
-      { name: "hair/hair_brown_01",      src: `${BASE}/hair/hair_brown_01.png` },
-      { name: "hair/hair_black_01",      src: `${BASE}/hair/hair_black_01.png` },
-      { name: "hair/hair_blond_01",      src: `${BASE}/hair/hair_blond_01.png` },
-      { name: "hair/hair_red_01",        src: `${BASE}/hair/hair_red_01.png` },
-      { name: "hair/hair_green_01",      src: `${BASE}/hair/hair_green_01.png` },
-      { name: "hair/hair_green_02",      src: `${BASE}/hair/hair_green_02.png` },
-      { name: "hair/hair_brown_02",      src: `${BASE}/hair/hair_brown_02.png` },
-      { name: "hair/hair_brown_03",      src: `${BASE}/hair/hair_brown_03.png` },
-      { name: "skin/head_tone1",         src: `${BASE}/skin/head_tone1.png` },
-      { name: "skin/head_tone2",         src: `${BASE}/skin/head_tone2.png` },
-      { name: "skin/head_tone3",         src: `${BASE}/skin/head_tone3.png` },
-      { name: "skin/head_tone4",         src: `${BASE}/skin/head_tone4.png` },
-      { name: "skin/head_tone5",         src: `${BASE}/skin/head_tone5.png` },
-      { name: "skin/head_tone6",         src: `${BASE}/skin/head_tone6.png` },
-      { name: "hands/hand_grab_tone1",   src: `${BASE}/hands/hand_grab_tone1.png` },
-      { name: "hands/hand_fist_tone1",   src: `${BASE}/hands/hand_fist_tone1.png` },
-      { name: "hands/hand_grab_tone2",   src: `${BASE}/hands/hand_grab_tone2.png` },
-      { name: "hands/hand_fist_tone2",   src: `${BASE}/hands/hand_fist_tone2.png` },
-      { name: "hands/hand_grab_tone3",   src: `${BASE}/hands/hand_grab_tone3.png` },
-      { name: "hands/hand_fist_tone3",   src: `${BASE}/hands/hand_fist_tone3.png` },
-      { name: "hands/hand_grab_tone4",   src: `${BASE}/hands/hand_grab_tone4.png` },
-      { name: "hands/hand_fist_tone4",   src: `${BASE}/hands/hand_fist_tone4.png` },
-      { name: "hands/hand_grab_tone5",   src: `${BASE}/hands/hand_grab_tone5.png` },
-      { name: "hands/hand_fist_tone5",   src: `${BASE}/hands/hand_fist_tone5.png` },
-      { name: "hands/hand_grab_tone6",   src: `${BASE}/hands/hand_grab_tone6.png` },
-      { name: "hands/hand_fist_tone6",   src: `${BASE}/hands/hand_fist_tone6.png` },
+    const allAssets: Array<{ name: LayerKey; src: string }> = [
+      { name: "chair",    src: `${CHARACTER_BASE}/chair/chair_black.png` },
+      { name: "chair",    src: `${CHARACTER_BASE}/chair/chair_gray.png` },
+      { name: "chair",    src: `${CHARACTER_BASE}/chair/chair_blue.png` },
+      { name: "chair",    src: `${CHARACTER_BASE}/chair/chair_beige.png` },
+      { name: "chair",    src: `${CHARACTER_BASE}/chair/chair_red.png` },
+      { name: "chair",    src: `${CHARACTER_BASE}/chair/chair_green.png` },
+      { name: "clothing", src: `${CHARACTER_BASE}/clothing/hoodie_teal.png` },
+      { name: "clothing", src: `${CHARACTER_BASE}/clothing/jacket_dark.png` },
+      { name: "clothing", src: `${CHARACTER_BASE}/clothing/vest_stripe.png` },
+      { name: "clothing", src: `${CHARACTER_BASE}/clothing/sweater_red.png` },
+      { name: "clothing", src: `${CHARACTER_BASE}/clothing/shirt_beige.png` },
+      { name: "clothing", src: `${CHARACTER_BASE}/clothing/cardigan_green.png` },
+      { name: "clothing", src: `${CHARACTER_BASE}/clothing/hoodie_black.png` },
+      { name: "clothing", src: `${CHARACTER_BASE}/clothing/tshirt_beige.png` },
+      { name: "hair",     src: `${CHARACTER_BASE}/hair/hair_brown_01.png` },
+      { name: "hair",     src: `${CHARACTER_BASE}/hair/hair_black_01.png` },
+      { name: "hair",     src: `${CHARACTER_BASE}/hair/hair_blond_01.png` },
+      { name: "hair",     src: `${CHARACTER_BASE}/hair/hair_red_01.png` },
+      { name: "hair",     src: `${CHARACTER_BASE}/hair/hair_green_01.png` },
+      { name: "hair",     src: `${CHARACTER_BASE}/hair/hair_green_02.png` },
+      { name: "hair",     src: `${CHARACTER_BASE}/hair/hair_brown_02.png` },
+      { name: "hair",     src: `${CHARACTER_BASE}/hair/hair_brown_03.png` },
+      { name: "skin",     src: `${CHARACTER_BASE}/skin/head_tone1.png` },
+      { name: "skin",     src: `${CHARACTER_BASE}/skin/head_tone2.png` },
+      { name: "skin",     src: `${CHARACTER_BASE}/skin/head_tone3.png` },
+      { name: "skin",     src: `${CHARACTER_BASE}/skin/head_tone4.png` },
+      { name: "skin",     src: `${CHARACTER_BASE}/skin/head_tone5.png` },
+      { name: "skin",     src: `${CHARACTER_BASE}/skin/head_tone6.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_grab_tone1.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_fist_tone1.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_grab_tone2.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_fist_tone2.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_grab_tone3.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_fist_tone3.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_grab_tone4.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_fist_tone4.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_grab_tone5.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_fist_tone5.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_grab_tone6.png` },
+      { name: "hands",    src: `${CHARACTER_BASE}/hands/hand_fist_tone6.png` },
     ];
 
     console.group("[validateCharacterAssets] Checking all character assets...");
-    const results = await Promise.all(allAssets.map(a => validateLayer(a.name, a.src)));
-    const ok      = results.filter(r => r.valid);
-    const fail    = results.filter(r => !r.valid);
+    const results = await Promise.all(allAssets.map(a => validateLayerSrc(a.name, a.src)));
+    const ok   = results.filter(r => r.valid);
+    const fail = results.filter(r => !r.valid);
 
-    ok.forEach(r => console.log(`  ✓ ${r.name} — ${REQUIRED_FRAME.width}x${REQUIRED_FRAME.height} OK`));
-    fail.forEach(r => console.warn(`  ✗ ${r.name} — ${r.reason}`));
+    ok.forEach(r   => console.log(`  ✓ ${r.src.split("/").slice(-2).join("/")} — ${REQUIRED_FRAME.width}x${REQUIRED_FRAME.height} OK`));
+    fail.forEach(r => console.warn(`  ✗ ${r.src.split("/").slice(-2).join("/")} — ${r.reason}`));
 
-    const defaultLayers: Array<{ name: string; src: string }> = [
+    const defaultLayers: Array<{ name: LayerKey; src: string }> = [
       { name: "chair",    src: chairSrc("chair_black") },
       { name: "clothing", src: clothingSrc("hoodie_teal") },
       { name: "skin",     src: headSrc("tone1") },
       { name: "hands",    src: handGrabSrc("tone1") },
       { name: "hair",     src: hairSrc("hair_brown_01") },
     ];
-    const defaultResults = await Promise.all(defaultLayers.map(l => validateLayer(l.name, l.src)));
+    const defaultResults   = await Promise.all(defaultLayers.map(l => validateLayerSrc(l.name, l.src)));
     const allDefaultsValid = defaultResults.every(r => r.valid);
 
     console.log(`\n  Total: ${results.length} assets — ${ok.length} OK, ${fail.length} FAILED`);
@@ -138,6 +140,16 @@ if (typeof window !== "undefined") {
   };
 }
 
+// ── Layer debug outline colors ────────────────────────────────────────────────
+
+export const LAYER_COLORS: Record<LayerKey, string> = {
+  chair:    "#3b82f6",
+  clothing: "#f59e0b",
+  skin:     "#f97316",
+  hands:    "#8b5cf6",
+  hair:     "#10b981",
+};
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -146,6 +158,14 @@ interface Props {
   typingFrame?:  0 | 1;
   style?:        CSSProperties;
   className?:    string;
+  /** Dev only: bypass null-guard so all layers render regardless of validation state */
+  devMode?:          boolean;
+  /** Dev only: per-layer visibility overrides */
+  devLayerVis?:      Partial<Record<LayerKey, boolean>>;
+  /** Dev only: draw 512×512 frame outline on each layer */
+  devShowBounds?:    boolean;
+  /** Dev only: called whenever validation results change */
+  onValidationChange?: (statuses: LayerStatus[]) => void;
 }
 
 const layerStyle: CSSProperties = {
@@ -158,11 +178,49 @@ const layerStyle: CSSProperties = {
   userSelect:    "none",
 };
 
-export function CharacterComposite({ customization, workState, typingFrame = 0, style, className }: Props) {
+function LayerImg({
+  src, alt, zIndex, visible, showBounds, layerKey,
+}: {
+  src: string; alt: string; zIndex: number;
+  visible: boolean; showBounds: boolean; layerKey: LayerKey;
+}) {
+  if (!visible) return null;
+  return (
+    <div style={{ position: "absolute", inset: 0, zIndex }}>
+      <img src={src} alt={alt} draggable={false} style={layerStyle} />
+      {showBounds && (
+        <>
+          <div style={{
+            position: "absolute", inset: 0,
+            border: `2px solid ${LAYER_COLORS[layerKey]}`,
+            pointerEvents: "none",
+            boxSizing: "border-box",
+          }} />
+          <span style={{
+            position: "absolute", top: 2, left: 4,
+            fontSize: "8px", fontWeight: 700, lineHeight: 1,
+            color: LAYER_COLORS[layerKey],
+            textShadow: "0 0 3px #000",
+            pointerEvents: "none",
+            userSelect: "none",
+          }}>
+            {layerKey}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function CharacterComposite({
+  customization, workState, typingFrame = 0, style, className,
+  devMode = false, devLayerVis, devShowBounds = false, onValidationChange,
+}: Props) {
   const { chair, clothing, skin, hair } = customization;
 
   const [layersValid, setLayersValid] = useState<boolean | null>(null);
-  const validationDone = useRef(false);
+  const onValidationChangeRef = useRef(onValidationChange);
+  onValidationChangeRef.current = onValidationChange;
 
   const handSrc = workState === "working"
     ? (typingFrame === 0 ? handGrabSrc(skin) : handFistSrc(skin))
@@ -171,10 +229,9 @@ export function CharacterComposite({ customization, workState, typingFrame = 0, 
       : handFistSrc(skin);
 
   useEffect(() => {
-    if (validationDone.current) return;
-    validationDone.current = true;
+    setLayersValid(null);
 
-    const requiredLayers: Array<{ name: string; src: string }> = [
+    const requiredLayers: Array<{ name: LayerKey; src: string }> = [
       { name: "chair",    src: chairSrc(chair) },
       { name: "clothing", src: clothingSrc(clothing) },
       { name: "skin",     src: headSrc(skin) },
@@ -182,7 +239,8 @@ export function CharacterComposite({ customization, workState, typingFrame = 0, 
       { name: "hair",     src: hairSrc(hair) },
     ];
 
-    Promise.all(requiredLayers.map(l => validateLayer(l.name, l.src))).then(results => {
+    Promise.all(requiredLayers.map(l => validateLayerSrc(l.name, l.src))).then(results => {
+      onValidationChangeRef.current?.(results);
       const invalid = results.filter(r => !r.valid);
       if (invalid.length > 0) {
         invalid.forEach(r =>
@@ -195,9 +253,11 @@ export function CharacterComposite({ customization, workState, typingFrame = 0, 
     });
   }, [chair, clothing, skin, hair]);
 
-  if (layersValid === null || layersValid === false) {
+  if (!devMode && (layersValid === null || layersValid === false)) {
     return null;
   }
+
+  const vis = (key: LayerKey) => devLayerVis ? (devLayerVis[key] ?? true) : true;
 
   const bobY = workState === "celebrating"
     ? [0, -10, 0, -6, 0]
@@ -213,16 +273,11 @@ export function CharacterComposite({ customization, workState, typingFrame = 0, 
       animate={{ y: bobY }}
       transition={{ duration: bobDur, repeat: Infinity, ease: "easeInOut", repeatType: "mirror" }}
     >
-      {/* Layer 1 — Chair (back) */}
-      <img src={chairSrc(chair)}       alt="" draggable={false} style={{ ...layerStyle, zIndex: 1 }} />
-      {/* Layer 2 — Clothing/body */}
-      <img src={clothingSrc(clothing)} alt="" draggable={false} style={{ ...layerStyle, zIndex: 2 }} />
-      {/* Layer 3 — Skin head/neck */}
-      <img src={headSrc(skin)}         alt="" draggable={false} style={{ ...layerStyle, zIndex: 3 }} />
-      {/* Layer 4 — Hands (state-driven) */}
-      <img src={handSrc}               alt="" draggable={false} style={{ ...layerStyle, zIndex: 4 }} />
-      {/* Layer 5 — Hair (topmost) */}
-      <img src={hairSrc(hair)}         alt="" draggable={false} style={{ ...layerStyle, zIndex: 5 }} />
+      <LayerImg src={chairSrc(chair)}       alt="" zIndex={1} layerKey="chair"    visible={vis("chair")}    showBounds={devShowBounds} />
+      <LayerImg src={clothingSrc(clothing)} alt="" zIndex={2} layerKey="clothing" visible={vis("clothing")} showBounds={devShowBounds} />
+      <LayerImg src={headSrc(skin)}         alt="" zIndex={3} layerKey="skin"     visible={vis("skin")}     showBounds={devShowBounds} />
+      <LayerImg src={handSrc}               alt="" zIndex={4} layerKey="hands"    visible={vis("hands")}    showBounds={devShowBounds} />
+      <LayerImg src={hairSrc(hair)}         alt="" zIndex={5} layerKey="hair"     visible={vis("hair")}     showBounds={devShowBounds} />
     </motion.div>
   );
 }
