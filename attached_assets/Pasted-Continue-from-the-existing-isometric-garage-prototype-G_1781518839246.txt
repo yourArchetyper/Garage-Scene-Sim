@@ -1,0 +1,66 @@
+Continue from the existing isometric garage prototype.Goal:Turn the prototype into a small playable “game development tycoon” loop inspired by the feeling of early garage-based dev tycoon games, but do not copy Game Dev Tycoon’s assets, UI, names, characters, exact mechanics, icons, layouts, jokes, or copyrighted identity. Build an original browser game with a similar high-level fantasy: starting alone in a garage, making small games, releasing them, earning money, gaining fans, and improving over time.Core direction:The game should feel less like a static isometric room and more like a living simulation where time moves forward, the player makes decisions, and the garage reacts visually to progress.Keep:- Isometric 2.5D garage scene- No Three.js- No external libraries- HTML/CSS/Vanilla JS- Minimal contextual click panel- No permanent large bottom HUDAdd the following systems:1. Automatic time progression- Time should always move unless the game is paused.- Use weeks as the main unit.- Display current week/year in a small top-left indicator.- Every few seconds, advance one week.- Weekly updates should affect:  - development progress  - energy  - money burn  - market messages  - project status2. Game project lifecycleAdd a full project loop:A. Start New Game- Player clicks the computer.- Context panel offers “Start New Game”.- Opening this shows a compact modal/panel, not a huge dashboard.- Player chooses:  - Game name  - Topic  - Genre  - Platform  - Game size: Small only for nowExample topics:- Fantasy- Space- Racing- Business- Medieval- Horror- DetectiveExample genres:- RPG- Strategy- Simulation- Action- AdventureExample platforms:- Home Computer- Arcade Cabinet- Early ConsoleB. Development PhaseOnce a project starts:- Developer character becomes visibly active at the desk.- Monitor flickers.- Small floating progress bubbles appear occasionally:  - “Design +2”  - “Tech +3”  - “Bug +1”  - “Hype +1”- Project has:  - design points  - tech points  - bugs  - progress %  - hype- Progress increases automatically each week.- Clicking the computer during development opens actions:  - Focus on Design  - Focus on Technology  - Fix Bugs  - Crunch  - Pause ProjectC. Balancing choicesPlayer should choose development focus:- Design-heavy games work better for RPG, Adventure, Simulation- Tech-heavy games work better for Action, Racing, Space- Too many bugs reduce reviews- Crunch increases progress but drains energyD. Finish / ReleaseWhen progress reaches 100%:- Context panel changes to “Release Game”.- Releasing the game creates:  - Review score from 1–10  - Sales over several weeks  - Money earned  - Fans gained or lost  - Small post-release report3. Review and sales systemImplement a simple but understandable scoring formula.Review score should depend on:- topic + genre fit- genre + platform fit- design/tech balance- bugs- player focus decisions- small random varianceExample:- Fantasy + RPG = strong fit- Racing + Action = strong fit- Business + Simulation = strong fit- Horror + Adventure = medium fit- RPG on Arcade = weaker fit- Action on Arcade = strong fitAfter release:- Show 4 fake review quotes from fictional magazines.- Each quote has a score.- Average score becomes the game’s final rating.- Then show sales summary:  - Units sold  - Revenue  - Fans gained  - Profit/lossDo not make this a spreadsheet. Present it as a simple animated report overlay.4. Garage progressionThe garage should visually evolve based on progress.Add simple upgrades:- Better Chair- Faster Computer- Extra Monitor- Bookshelf- Whiteboard- Coffee Machine- Marketing PosterEach upgrade:- Costs money- Gives a small bonus- Appears visually inside the garage after purchaseExamples:- Better Computer: +15% tech point generation- Bookshelf: +10% design point generation- Coffee Machine: reduces energy loss- Whiteboard: reduces bugs- Poster: increases hype slightlyPlayer clicks shelf/garage objects to buy or inspect upgrades.5. Character stateThe developer should have simple visible states:- Idle- Working- Tired- Celebrating- StressedUse CSS classes or small DOM/SVG changes:- Working: typing animation- Tired: slumped posture or dimmed color- Celebrating: small bounce animation- Stressed: red warning bubble or faster typingEnergy affects productivity:- High energy = normal point generation- Low energy = more bugs and slower progress- Rest action restores energy but skips progress for a week6. Minimal UI rulesDo not add a big permanent bottom panel.Allowed persistent UI:- Tiny top-left status card:  - Week / Year  - Money  - Fans  - Energy  - Current project progress, only if activeEverything else should be contextual:- Click computer → project actions- Click shelf → upgrades- Click developer → rest/focus- Click report icon → latest sales report- Click empty space → close panelThe game should still feel playable without a large HUD.7. Events and messagesAdd lightweight random events every few weeks.Examples:- “A magazine mentions your project. Hype +3.”- “Computer overheated. Progress slowed this week.”- “You found an old programming book. Tech +5.”- “A bug slipped into the code. Bugs +2.”- “A local club likes your demo. Fans +8.”Show these as small toast messages, not blocking modals.8. Win condition for prototypeThe prototype should support at least:- Starting a game- Developing it over time- Choosing focus actions- Releasing it- Getting reviews- Getting sales- Buying at least 3 visible garage upgrades- Starting a second game with improved stats9. Code structureRefactor the JavaScript into clear systems:- state- game data- rendering- interaction- simulation- project lifecycle- reviews/sales- upgrades- eventsUse functions like:```jsfunction startProject(config) {}function advanceWeek() {}function generateDevPoints() {}function performProjectAction(actionId) {}function calculateReviewScore(project) {}function releaseProject() {}function calculateSales(game) {}function buyUpgrade(upgradeId) {}function triggerRandomEvent() {}function renderGarage() {}function renderContextPanel(target, x, y) {}function renderStats() {}function showToast(message) {}
+Use data-driven definitions:
+const topics = {...};const genres = {...};const platforms = {...};const upgrades = {...};const events = [...];
+
+
+UX feel
+The player should understand in 5 seconds:
+
+
+
+
+This is a garage dev sim.
+
+
+Click the computer to make a game.
+
+
+Time is moving.
+
+
+The character is working.
+
+
+Releasing games gives reviews, sales, fans, and money.
+
+
+Money buys visible upgrades.
+
+
+Do not overbuild:
+
+
+No employees yet
+
+
+No office moves yet
+
+
+No complex research tree yet
+
+
+No publisher contracts yet
+
+
+No save/load yet
+
+
+No Steam/platform launch system yet
+
+
+No advanced economy
+
+
+No huge menus
+
+
+No full dashboard UI
+
+
+Deliverable:
+Return one complete working HTML file with embedded CSS and JS.
+It must run directly in the browser.
+No external dependencies.
+No placeholder TODO comments.
+The result should feel like a small playable vertical slice, not a UI mockup.
+The constraint that matters here is **activation**: can the player immediately understand “click computer → make game → time passes → release → earn money”? Cut everything that does not prove that loop.
