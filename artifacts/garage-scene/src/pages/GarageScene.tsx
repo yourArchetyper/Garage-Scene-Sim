@@ -10,6 +10,8 @@ declare global {
   }
 }
 
+const PLAYTEST_MODE = true;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: ANALYTICS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -58,6 +60,18 @@ const analytics = {
   trendMatchedRevenue: [] as number[],
   trendBadgeSeen: false,
   usedTrendAfterSeeing: false,
+  // Playtest extras
+  gamesStarted: 0,
+  newProjectClosedWithoutStart: 0,
+  menuOpenedWithNoAction: 0,
+  clickedLockedMenuItem: 0,
+  releaseFlowAbandoned: 0,
+  idleDetected: false,
+  firstReleaseReady: null as number | null,
+  firstReleaseClicked: null as number | null,
+  firstReviewRevealed: null as number | null,
+  finalSummaryViewedAt: null as number | null,
+  playtestSurvey: { q1: 0, q2: 0, q3: 0, q4: 0, feedback: "" },
 };
 
 function track(eventName: string, data: Record<string, unknown> = {}) {
@@ -467,6 +481,10 @@ export default function GarageScene() {
   const [pillDismissed,setPillDismissed] = useState(false);
   const [actionBurst,setActionBurst]   = useState<{type:string;key:number}|null>(null);
 
+  // ── Playtest state ──
+  const [showPlaytestSummary,setShowPlaytestSummary] = useState(false);
+  const [surveyAnswers,setSurveyAnswers] = useState({q1:0,q2:0,q3:0,q4:0,feedback:""});
+
   // ── Refs ──
   const phaseRef     = useRef(phase);
   const upgradesRef  = useRef(upgrades);
@@ -478,6 +496,9 @@ export default function GarageScene() {
   const projectRef   = useRef(project);
   const weeksSinceEvent = useRef(0);
   const releaseReadyFired = useRef(false);
+  // Confusion signal tracking refs
+  const menuActionTakenRef = useRef(false);
+  const newGameProjectStartedRef = useRef(false);
   // Market trend refs
   const currentTrendRef  = useRef<MarketTrendDef|null>(null);
   const nextTrendWeekRef = useRef(16); // first trend around week 16
@@ -605,10 +626,49 @@ export default function GarageScene() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
+  // ── Idle detection (60s with no project started) ──
+  useEffect(()=>{
+    const id = setTimeout(()=>{
+      if(!analytics.flags.startedFirstProject){
+        analytics.idleDetected = true;
+        track("idle_60_seconds_no_project",{elapsed:60});
+      }
+    },60000);
+    return ()=>clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+
+  // ── New project closed without starting ──
+  useEffect(()=>{
+    if(showNewGame){
+      newGameProjectStartedRef.current = false;
+    } else if(analytics.flags.clickedComputer){
+      if(!newGameProjectStartedRef.current){
+        analytics.newProjectClosedWithoutStart++;
+        track("opened_new_project_then_closed",{count:analytics.newProjectClosedWithoutStart});
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[showNewGame]);
+
+  // ── Menu opened with no action ──
+  useEffect(()=>{
+    if(!studioMenu) return;
+    menuActionTakenRef.current = false;
+    return ()=>{
+      if(!menuActionTakenRef.current){
+        analytics.menuOpenedWithNoAction++;
+        track("opened_menu_but_no_action",{count:analytics.menuOpenedWithNoAction});
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[studioMenu]);
+
   // ── Release-ready effect (fires exactly once per project) ──
   useEffect(()=>{
     if(project?.progress!==undefined&&project.progress>=100&&!releaseReadyFired.current){
       releaseReadyFired.current = true;
+      if(!analytics.firstReleaseReady) analytics.firstReleaseReady = Date.now();
       setCelebrating(true);
       track("release_ready",{});
       track("release_ready_visual_shown",{});
@@ -928,6 +988,8 @@ export default function GarageScene() {
 
   function startProject(){
     releaseReadyFired.current = false;
+    newGameProjectStartedRef.current = true;
+    analytics.gamesStarted++;
     const p:Project = {name:formName||makeTitle(),topic:formTopic,genre:formGenre,platform:formPlatform,design:0,tech:0,bugs:0,progress:0,research:0,hype:0};
     setProject(p);
     setPhase("developing");
@@ -956,6 +1018,7 @@ export default function GarageScene() {
 
   function releaseGame(){
     if(!project) return;
+    if(!analytics.firstReleaseClicked) analytics.firstReleaseClicked = Date.now();
     const result = generateReview(project, upgrades, currentTrend);
     const diag   = buildDiagnosis(project, result, upgrades);
     const tgt    = buildNextTarget(result, history, fansRef.current);
@@ -1072,6 +1135,7 @@ export default function GarageScene() {
   }
   function handleMenuAction(action:string){
     analytics.menuItemClicks++;
+    menuActionTakenRef.current = true;
     setStudioMenu(null);
     track("global_menu_item_clicked",{action,phase});
     if(action==="newGame")       { setShowNewGame(true); }
@@ -1092,6 +1156,7 @@ export default function GarageScene() {
     if(!flow || flow.phase!=="reviews") return;
     if(flow.revealStep===0){
       // Reveal the quote + score
+      if(analytics.reviewsRevealed===0) analytics.firstReviewRevealed = Date.now();
       analytics.reviewsRevealed++;
       track("review_revealed",{index:flow.reviewIndex,outlet:reviewResultRef.current?.reviewers[flow.reviewIndex]?.outlet});
       setReleaseFlow({...flow,revealStep:1});
@@ -1146,6 +1211,7 @@ export default function GarageScene() {
     const newFans = flow.runningFans+week.fans;
     const newUnits = flow.runningUnits+week.units;
     if(nextIdx>=flow.salesWeeks.length){
+      if(!analytics.finalSummaryViewedAt) analytics.finalSummaryViewedAt = Date.now();
       setReleaseFlow({...flow,salesIndex:nextIdx,runningRevenue:newRev,runningFans:newFans,runningUnits:newUnits,phase:"summary",autoPlay:false});
       track("final_summary_viewed",{});
       analytics.reachedSummary=true;
@@ -1167,6 +1233,7 @@ export default function GarageScene() {
     if(remRev>0) setCash(c=>c+remRev);
     if(remFans>0) setFans(f=>f+remFans);
     analytics.skippedSales=true;
+    if(!analytics.finalSummaryViewedAt) analytics.finalSummaryViewedAt = Date.now();
     track("sales_skipped",{weeksRemaining:flow.salesWeeks.length-flow.salesIndex});
     track("final_summary_viewed",{});
     analytics.reachedSummary=true;
@@ -1870,7 +1937,9 @@ export default function GarageScene() {
             {menuItems.map((item,i)=>(
               <button key={item.action}
                 disabled={item.disabled}
-                onClick={()=>handleMenuAction(item.action)}
+                onClick={item.disabled
+                  ? ()=>{ analytics.clickedLockedMenuItem++; track("clicked_locked_menu_item",{action:item.action,count:analytics.clickedLockedMenuItem}); }
+                  : ()=>handleMenuAction(item.action)}
                 onMouseEnter={()=>setMenuSelectedIdx(i)}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
                   item.disabled
@@ -2458,6 +2527,297 @@ export default function GarageScene() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── PLAYTEST MODE ──────────────────────────────────────────────────── */}
+      {PLAYTEST_MODE&&(
+        <>
+          {/* End Playtest button */}
+          {!showPlaytestSummary&&(
+            <button
+              data-interactive="true"
+              onClick={()=>setShowPlaytestSummary(true)}
+              className="absolute bottom-3 left-3 z-50 text-[10px] font-bold text-gray-400 hover:text-white bg-gray-900/70 backdrop-blur border border-gray-700/60 hover:border-gray-500 rounded-lg px-2.5 py-1.5 transition-all select-none">
+              End Playtest
+            </button>
+          )}
+
+          {/* Playtest Summary Modal */}
+          <AnimatePresence>
+            {showPlaytestSummary&&(()=>{
+              const t0 = analytics.sessionStartedAt;
+              const now = Date.now();
+              const elapsedSec = (now-t0)/1000;
+              const relSec = (ts:number|null)=>ts===null?"—":((ts-t0)/1000).toFixed(1)+"s";
+              const f = analytics.flags;
+              const verdict = !f.startedFirstProject
+                ? {label:"Onboarding failed",color:"bg-red-600",text:"No project started within the session. Onboarding did not activate the player."}
+                : !f.releasedFirstGame
+                  ? {label:"Release never reached",color:"bg-orange-500",text:"Player started a project but never released it. Check dev loop clarity."}
+                  : !f.startedSecondProject&&!f.boughtUpgrade
+                    ? {label:"Payoff weak",color:"bg-yellow-500 text-gray-900",text:"First game released but player did not buy an upgrade or start a second game."}
+                    : f.startedSecondProject
+                      ? {label:"Retention signal passed",color:"bg-green-600",text:"Player completed the full core loop and started a second game."}
+                      : {label:"Activation passed",color:"bg-blue-500",text:"First game released and upgrade bought. Second game not yet started."};
+
+              const questions = [
+                {key:"q1",label:"I understood what to do first."},
+                {key:"q2",label:"Releasing a game felt rewarding."},
+                {key:"q3",label:"I wanted to make a second game."},
+                {key:"q4",label:"The UI felt clear."},
+              ] as {key:"q1"|"q2"|"q3"|"q4";label:string}[];
+
+              function copySummaryJson(){
+                const payload = {
+                  session: {
+                    startedAt: t0,
+                    elapsedSeconds: Math.round(elapsedSec),
+                  },
+                  flags: f,
+                  timers: {
+                    firstObjectHover:      relSec(analytics.firstObjectHover),
+                    firstComputerClick:    relSec(analytics.firstComputerClick),
+                    firstNewProjectOpen:   relSec(analytics.firstModalOpen),
+                    firstProjectStart:     relSec(analytics.firstProjectStart),
+                    firstReleaseReady:     relSec(analytics.firstReleaseReady),
+                    firstReleaseClicked:   relSec(analytics.firstReleaseClicked),
+                    firstReviewRevealed:   relSec(analytics.firstReviewRevealed),
+                    finalSummaryViewed:    relSec(analytics.finalSummaryViewedAt),
+                    firstUpgradeBought:    relSec(analytics.firstUpgradeBought),
+                  },
+                  metrics: {
+                    gamesStarted:          analytics.gamesStarted,
+                    gamesReleased:         analytics.totalGamesReleased,
+                    bestScore:             analytics.bestScore,
+                    bestRevenue:           analytics.bestRevenue,
+                    totalFans:             fans,
+                    upgradesBought:        upgrades.size,
+                    panelsOpened:          analytics.panelsOpened,
+                    actionsUsed:           analytics.actionsUsed,
+                    missedClicksBeforeStart: analytics.missedClicksBeforeStart,
+                    reviewsRevealed:       analytics.reviewsRevealed,
+                    salesWeeksViewed:      analytics.salesWeeksViewed,
+                    skippedSales:          analytics.skippedSales,
+                    menuOpens:             analytics.menuOpens,
+                    menuItemClicks:        analytics.menuItemClicks,
+                  },
+                  confusionSignals: {
+                    newProjectClosedWithoutStart: analytics.newProjectClosedWithoutStart,
+                    menuOpenedWithNoAction:       analytics.menuOpenedWithNoAction,
+                    clickedLockedMenuItem:        analytics.clickedLockedMenuItem,
+                    releaseFlowAbandoned:         analytics.releaseFlowAbandoned,
+                    idleDetected:                 analytics.idleDetected,
+                    missedClicksBeforeStart:      analytics.missedClicksBeforeStart,
+                  },
+                  releases: history,
+                  upgradesBought: [...upgrades],
+                  trendUsage: {
+                    trendsSeen: analytics.trendsSeen,
+                    gamesMatchingTrend: analytics.gamesMatchingTrend,
+                    gamesIgnoringTrend: analytics.gamesIgnoringTrend,
+                    usedTrendAfterSeeing: analytics.usedTrendAfterSeeing,
+                  },
+                  contractUsage: {
+                    opened: analytics.contractWorkOpened,
+                    started: analytics.contractsStarted,
+                    completed: analytics.contractsCompleted,
+                  },
+                  survey: surveyAnswers,
+                  events: analytics.events,
+                };
+                const json = JSON.stringify(payload, null, 2);
+                navigator.clipboard.writeText(json).catch(()=>{});
+                console.log("[playtest session JSON]", payload);
+              }
+
+              return (
+                <motion.div
+                  initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+                  className="absolute inset-0 z-[60] flex items-start justify-center bg-black/75 backdrop-blur-sm overflow-y-auto py-4"
+                  onClick={e=>{if(e.target===e.currentTarget)setShowPlaytestSummary(false);}}>
+                  <motion.div
+                    data-panel="playtest-summary"
+                    initial={{scale:0.93,y:16}} animate={{scale:1,y:0}} exit={{scale:0.93,y:16}}
+                    transition={{type:"spring",damping:24,stiffness:320}}
+                    className="bg-gray-950 text-white rounded-2xl shadow-2xl border border-gray-800 w-[440px] mx-4 my-2 overflow-hidden">
+
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-800">
+                      <div>
+                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-0.5">Playtest</div>
+                        <div className="text-lg font-black leading-none">Session Summary</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[9px] text-gray-500 uppercase font-bold">Time played</div>
+                        <div className="text-xl font-black text-amber-400">
+                          {elapsedSec>=3600
+                            ? `${Math.floor(elapsedSec/3600)}h ${Math.floor((elapsedSec%3600)/60)}m`
+                            : `${Math.floor(elapsedSec/60)}m ${Math.floor(elapsedSec%60)}s`}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-5 py-4 flex flex-col gap-4">
+
+                      {/* Core loop checklist */}
+                      <div>
+                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Core Loop</div>
+                        <div className="grid grid-cols-2 gap-1">
+                          {([
+                            [f.startedFirstProject,  "Started first project"],
+                            [f.releasedFirstGame,     "Released first game"],
+                            [analytics.reachedSummary,"Reached sales summary"],
+                            [f.boughtUpgrade,         "Bought an upgrade"],
+                            [f.startedSecondProject,  "Started second game"],
+                            [analytics.menuOpens>0,   "Used global menu"],
+                          ] as [boolean,string][]).map(([ok,label])=>(
+                            <div key={label} className={`flex items-center gap-1.5 text-[11px] rounded-lg px-2.5 py-1.5 ${ok?"bg-green-950/60 text-green-300":"bg-gray-900 text-gray-500"}`}>
+                              <span className="text-sm">{ok?"✓":"✗"}</span>
+                              <span className={ok?"font-semibold":""}>{label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Metrics */}
+                      <div>
+                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Metrics</div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {([
+                            ["Games started",   analytics.gamesStarted],
+                            ["Games released",  analytics.totalGamesReleased],
+                            ["Fans",            fans],
+                            ["Best score",      analytics.bestScore>0?analytics.bestScore+"/10":"—"],
+                            ["Best revenue",    analytics.bestRevenue>0?"$"+analytics.bestRevenue.toLocaleString():"—"],
+                            ["Upgrades",        upgrades.size],
+                            ["Panels opened",   analytics.panelsOpened],
+                            ["Dev actions",     analytics.actionsUsed],
+                            ["Reviews seen",    analytics.reviewsRevealed],
+                          ] as [string,string|number][]).map(([label,val])=>(
+                            <div key={label} className="bg-gray-900 rounded-lg px-2.5 py-2 text-center">
+                              <div className="text-sm font-black text-white leading-none">{val}</div>
+                              <div className="text-[9px] text-gray-500 mt-0.5">{label}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Confusion signals */}
+                      <div>
+                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Confusion Signals</div>
+                        <div className="flex flex-col gap-1">
+                          {([
+                            ["Missed clicks before first project", analytics.missedClicksBeforeStart, analytics.missedClicksBeforeStart>=3],
+                            ["New project closed without starting", analytics.newProjectClosedWithoutStart, analytics.newProjectClosedWithoutStart>=2],
+                            ["Menu opened with no action",          analytics.menuOpenedWithNoAction, analytics.menuOpenedWithNoAction>=2],
+                            ["Locked menu items clicked",           analytics.clickedLockedMenuItem, analytics.clickedLockedMenuItem>=1],
+                            ["60s idle with no project",            analytics.idleDetected?1:0, analytics.idleDetected],
+                            ["Sales skipped",                       analytics.skippedSales?1:0, analytics.skippedSales],
+                          ] as [string,number,boolean][]).map(([label,val,warn])=>(
+                            <div key={label} className={`flex items-center justify-between text-[11px] rounded-lg px-2.5 py-1.5 ${warn?"bg-red-950/50 text-red-300":"bg-gray-900 text-gray-400"}`}>
+                              <span>{label}</span>
+                              <span className={`font-black ml-2 ${warn?"text-red-400":"text-gray-500"}`}>{typeof val==="boolean"?val?"yes":"no":val}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* First-session timers */}
+                      <details className="group">
+                        <summary className="text-[9px] font-black text-gray-500 uppercase tracking-widest cursor-pointer hover:text-gray-300 select-none list-none flex items-center gap-1">
+                          <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                          First-session timers
+                        </summary>
+                        <div className="mt-2 flex flex-col gap-1">
+                          {([
+                            ["First object hover",     analytics.firstObjectHover],
+                            ["First computer click",   analytics.firstComputerClick],
+                            ["New project panel open", analytics.firstModalOpen],
+                            ["First project started",  analytics.firstProjectStart],
+                            ["Release ready",          analytics.firstReleaseReady],
+                            ["Release clicked",        analytics.firstReleaseClicked],
+                            ["First review revealed",  analytics.firstReviewRevealed],
+                            ["Sales summary viewed",   analytics.finalSummaryViewedAt],
+                            ["First upgrade bought",   analytics.firstUpgradeBought],
+                          ] as [string,number|null][]).map(([label,ts])=>(
+                            <div key={label} className="flex items-center justify-between text-[11px] bg-gray-900 rounded-lg px-2.5 py-1.5">
+                              <span className="text-gray-400">{label}</span>
+                              <span className={`font-black ml-2 ${ts?"text-amber-400":"text-gray-600"}`}>{relSec(ts)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+
+                      {/* Verdict */}
+                      <div className={`rounded-xl px-4 py-3 ${verdict.color}`}>
+                        <div className="font-black text-sm leading-none mb-1">{verdict.label}</div>
+                        <div className="text-[11px] opacity-90 leading-snug">{verdict.text}</div>
+                      </div>
+
+                      {/* Survey */}
+                      <div className="border-t border-gray-800 pt-4">
+                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-3">Player Survey</div>
+                        <div className="flex flex-col gap-3">
+                          {questions.map(({key,label})=>(
+                            <div key={key}>
+                              <div className="text-[11px] text-gray-300 mb-1.5 font-semibold">{label}</div>
+                              <div className="flex gap-1.5">
+                                {([1,2,3,4,5] as const).map(n=>(
+                                  <button key={n}
+                                    data-interactive="true"
+                                    onClick={()=>{
+                                      const next = {...surveyAnswers,[key]:n};
+                                      setSurveyAnswers(next);
+                                      analytics.playtestSurvey = {...analytics.playtestSurvey,[key]:n};
+                                    }}
+                                    className={`flex-1 py-1.5 rounded-lg text-[11px] font-black transition-colors border ${
+                                      surveyAnswers[key]===n
+                                        ?"bg-amber-500 border-amber-400 text-white"
+                                        :"bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"
+                                    }`}>{n}</button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                          <div>
+                            <div className="text-[11px] text-gray-300 mb-1.5 font-semibold">What confused you? <span className="text-gray-600 font-normal">(optional)</span></div>
+                            <textarea
+                              data-interactive="true"
+                              rows={3}
+                              placeholder="Describe anything that felt unclear…"
+                              value={surveyAnswers.feedback}
+                              onChange={e=>{
+                                const next = {...surveyAnswers,feedback:e.target.value};
+                                setSurveyAnswers(next);
+                                analytics.playtestSurvey = {...analytics.playtestSurvey,feedback:e.target.value};
+                              }}
+                              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-[11px] text-gray-200 placeholder:text-gray-600 focus:outline-none focus:border-gray-500 resize-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 pt-1">
+                        <button data-interactive="true"
+                          onClick={copySummaryJson}
+                          className="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold text-[11px] transition-colors border border-gray-700">
+                          Copy Session JSON
+                        </button>
+                        <button data-interactive="true"
+                          onClick={()=>setShowPlaytestSummary(false)}
+                          className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-[11px] transition-colors active:scale-95">
+                          Close
+                        </button>
+                      </div>
+
+                    </div>
+                  </motion.div>
+                </motion.div>
+              );
+            })()}
+          </AnimatePresence>
+        </>
+      )}
 
     </div>
   );

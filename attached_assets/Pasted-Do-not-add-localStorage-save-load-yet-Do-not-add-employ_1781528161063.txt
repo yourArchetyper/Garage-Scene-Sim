@@ -1,0 +1,180 @@
+Do not add localStorage save/load yet.
+
+Do not add employees, offices, publishers, research boards, new contracts, custom engines, or new game systems.
+
+This pass is focused on playtest evidence.
+
+Current status:
+
+* TypeScript is clean.
+* Global menu works.
+* Contract work works.
+* Release flow works.
+* Analytics exists.
+* printSessionSummary() exists.
+* runSmokeTest() exists.
+
+Goal:
+Add a lightweight playtest mode so we can prove whether a new player understands and completes the core loop.
+
+Core loop to measure:
+Computer → Start project → Develop → Release → Reviews → Sales → Summary → Buy upgrade → Start second game.
+
+1. Add Playtest Mode flag
+
+Add:
+
+const PLAYTEST_MODE = true;
+
+When enabled, show a tiny unobtrusive button in bottom-left:
+
+“End Playtest”
+
+Do not show this as a big panel.
+
+2. Add end playtest summary modal
+
+When clicking “End Playtest”, show a compact modal with:
+
+* Time played
+* Games started
+* Games released
+* Did player release first game?
+* Did player reach final sales summary?
+* Did player buy an upgrade?
+* Did player start second game?
+* Did player use global menu?
+* Missed clicks before first project
+* Number of panels opened
+* Number of times player closed project modal without starting
+* Number of actions clicked during development
+* Whether player skipped sales
+* Whether player watched all reviews
+* Best score
+* Best revenue
+* Fans gained
+
+Then show a simple verdict:
+
+* “Activation passed” if first game released
+* “Retention signal passed” if second game started
+* “Payoff weak” if first game released but second game not started
+* “Onboarding failed” if no project started within 60 seconds
+
+3. Add export session JSON
+
+In the playtest summary modal, add button:
+
+“Copy Session JSON”
+
+It should copy a JSON object to clipboard with:
+
+* analytics.events
+* analytics.flags
+* summary metrics
+* released games
+* upgrades bought
+* global menu usage
+* release flow behavior
+* trend usage
+* contract usage
+
+Also log it to console.
+
+4. Add small post-playtest questions
+
+At the bottom of the modal, add 4 manual questions with clickable 1–5 ratings:
+
+* “I understood what to do first.”
+* “Releasing a game felt rewarding.”
+* “I wanted to make a second game.”
+* “The UI felt clear.”
+
+Store answers in analytics.playtestSurvey.
+
+Add optional text box:
+“What confused you?”
+
+5. Add passive confusion signals
+
+Track:
+
+* clicked_empty_scene_before_first_project
+* opened_new_project_then_closed
+* opened_menu_but_no_action
+* clicked_locked_menu_item
+* release_flow_abandoned
+* sales_skipped
+* repeated_missed_clicks
+* idle_60_seconds_no_project
+
+Use these in summary.
+
+6. Add first-session timers
+
+Track exact timestamps for:
+
+* first hover
+* first computer click
+* first new project open
+* first project start
+* first release ready
+* first release clicked
+* first review revealed
+* final summary viewed
+* first upgrade bought
+* second project started
+
+Show these in the summary.
+
+7. Preserve current game
+
+Do not change game balance unless necessary.
+Do not add gameplay systems.
+Do not add save/load.
+Do not add dashboards during normal play.
+
+Allowed:
+
+* tiny “End Playtest” button
+* summary modal only after player ends test
+* JSON export
+
+8. QA
+
+After implementing, run:
+
+* typecheck
+* smoke test
+* fresh reload manual test
+
+Manual test path:
+
+* open game fresh
+* wait 10 seconds
+* click computer
+* start default project
+* release game
+* watch reviews
+* watch sales
+* buy upgrade
+* start second game
+* click End Playtest
+* copy session JSON
+
+9. Deliverable
+
+Return complete updated code.
+Also include:
+
+* typecheck result
+* smoke test result
+* manual test checklist result
+
+Success criteria:
+After one 5–10 minute playtest, we should have evidence for:
+
+* whether onboarding works
+* whether release payoff works
+* whether second-game motivation works
+* where the player gets confused
