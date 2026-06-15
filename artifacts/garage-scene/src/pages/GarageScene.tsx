@@ -1831,32 +1831,6 @@ export default function GarageScene() {
             zIndex:1,
             pointerEvents:"none",
           }}/>
-          {/* Storage boxes shadow */}
-          <div style={{
-            position:"absolute",
-            left:`${(488/1760)*100}%`,
-            top:`${(575/990)*100}%`,
-            width:`${(140/1760)*100}%`,
-            height:`${(28/990)*100}%`,
-            borderRadius:"50%",
-            background:"rgba(20,8,0,0.12)",
-            filter:"blur(6px)",
-            zIndex:1,
-            pointerEvents:"none",
-          }}/>
-          {/* Plant shadow */}
-          <div style={{
-            position:"absolute",
-            left:`${(547/1760)*100}%`,
-            top:`${(405/990)*100}%`,
-            width:`${(100/1760)*100}%`,
-            height:`${(20/990)*100}%`,
-            borderRadius:"50%",
-            background:"rgba(20,8,0,0.10)",
-            filter:"blur(5px)",
-            zIndex:1,
-            pointerEvents:"none",
-          }}/>
           {/* Coffee station shadow (only when visible) */}
           {upgrades.has("coffeemaker")&&(
             <div style={{
@@ -1953,16 +1927,6 @@ export default function GarageScene() {
             }}/>
           ))}
 
-          {/* ── POSTER SUBTLE WIGGLE ── */}
-          <div className="poster-wiggle" style={{
-            position:"absolute",
-            left:`${(565/1760)*100}%`,
-            top:`${(215/990)*100}%`,
-            width:`${(135/1760)*100}%`,
-            height:`${(145/990)*100}%`,
-            zIndex:3,
-            pointerEvents:"none",
-          }}/>
 
           {/* ── SHELF UPGRADE OBJECTIVE PULSE ── */}
           {objectiveText==="Buy an upgrade"&&(

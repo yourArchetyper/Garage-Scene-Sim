@@ -1,0 +1,108 @@
+Rework the PNG asset integration because the current scene looks inconsistent and pasted together.
+
+Do not add new gameplay systems.
+
+Current problem:
+The PNG assets improve detail, but the scene now has inconsistent art direction. Separate furniture assets do not match the room perspective, scale, lighting, or detail level. The result looks like random images pasted on top of each other.
+
+Goal:
+Simplify the visual layer and make the scene more coherent.
+
+1. Stop using mismatched standalone furniture assets
+
+Temporarily remove or hide standalone PNG layers that do not align perfectly:
+
+* external bookshelf if it floats or mismatches the room
+* coffee station if it sits outside the room perspective
+* any prop that looks pasted on
+* any asset with mismatched lighting, scale, or perspective
+
+2. Use one base garage image as the main scene
+
+Render the garage as one primary background PNG:
+
+* base garage / complete room asset
+* includes floor, walls, desk, computer, shelf if already baked in
+
+This should be the main visual foundation.
+
+3. Use only player sprites as dynamic layers
+
+Keep separate PNG layers only for:
+
+* developer idle
+* developer typing frame 1
+* developer typing frame 2
+* developer tired
+* developer worried
+* developer thinking
+* developer resting
+* developer celebrating
+
+The player sprite should be positioned carefully on the chair/desk area.
+
+4. Keep interaction through invisible hitboxes
+
+Do not rely on PNG object clicks.
+
+Add or keep transparent hitboxes for:
+
+* computer
+* shelf/upgrades
+* developer
+* floor/global menu
+* desk
+
+These hitboxes should align to the baked background visually.
+
+5. Keep overlays and game feedback
+
+Preserve:
+
+* monitor glow overlay
+* design/tech/bug/research bubbles
+* release-ready badge
+* project pill
+* live sales panel
+* global studio menu
+* playtest mode
+
+6. Remove visual clutter
+
+Remove duplicate tutorial text.
+Keep only:
+
+* top-right objective pill
+* subtle computer glow
+* small hover label on computer
+
+7. Report removed assets
+
+After the change, report:
+
+* which standalone PNG layers were removed
+* which base image is used
+* which player sprites are still used
+* whether hitboxes still align
+* typecheck result
+
+8. QA
+
+Run:
+pnpm run typecheck
+
+Manual QA:
+
+* fresh reload
+* scene looks coherent, not pasted together
+* computer is clickable
+* player sprite aligns with desk/chair
+* start project
+* player switches to typing
+* bubbles appear
+* release flow works
+* live sales works
+* shelf/upgrades still clickable if hitbox exists
+
+Success criteria:
+The scene should look less detailed if necessary, but more coherent. Coherent art direction is more important than using every generated PNG asset.

@@ -42,13 +42,9 @@ export const PNG_SCENE_WIDTH = 1760;
 export const PNG_SCENE_HEIGHT = 990;
 
 export const pngSceneLayers: PngSceneLayer[] = [
-  { id: "base", asset: garageAssets.base, alt: "Isometric garage room", x: 420, y: 120, width: 900, z: 0 },
-  { id: "rug", asset: garageAssets.rug, alt: "Geometric floor rug", x: 720, y: 530, width: 300, z: 1 },
-  { id: "storage", asset: garageAssets.storage, alt: "Storage boxes and plans", x: 500, y: 450, width: 180, z: 2 },
-  { id: "plant", asset: garageAssets.plant, alt: "Potted plant", x: 560, y: 280, width: 120, z: 2 },
-  { id: "poster", asset: garageAssets.poster, alt: "Retro controller poster", x: 570, y: 220, width: 130, z: 2 },
-  { id: "bookshelf", asset: garageAssets.bookshelf, alt: "Upgrade bookshelf", x: 1190, y: 270, width: 220, z: 2 },
-  { id: "deskComputer", asset: garageAssets.deskComputer, alt: "Desk with retro computer", x: 710, y: 360, width: 340, z: 3 },
+  { id: "base",        asset: garageAssets.base,        alt: "Isometric garage room",        x: 420, y: 120, width: 900, z: 0 },
+  { id: "bookshelf",   asset: garageAssets.bookshelf,   alt: "Upgrade bookshelf",            x: 1190, y: 270, width: 220, z: 2 },
+  { id: "deskComputer",asset: garageAssets.deskComputer,alt: "Desk with retro computer",     x: 710, y: 360, width: 340, z: 3 },
 ];
 
 export const developerLayerBase = {
