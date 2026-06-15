@@ -30,8 +30,10 @@ const DEBUG_HITBOXES = false;
 // Disabled: current front-facing seated sprites do not match the Level 1 CRT desk perspective.
 // Enable once dedicated side-facing sprites are available.
 const SHOW_DEVELOPER_SPRITE = false;
-// Composite character from modular PNG layers. Set true to show the layered character.
-const SHOW_CHARACTER_COMPOSITE = true;
+// Composite character from modular PNG layers.
+// Set true only when all required default layers are confirmed valid (512x512 transparent PNGs, all layers present).
+// Keeping false hides broken partial renders (e.g. floating hairpiece) until assets are production-ready.
+const SHOW_CHARACTER_CUSTOMIZATION = false;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: ANALYTICS
@@ -1913,7 +1915,7 @@ export default function GarageScene() {
                Current front-facing seated sprites are disabled because they do not match the room perspective.
           ─────────────────────────────────────────────────────────────────── */}
           {/* ── CHARACTER COMPOSITE (layered PNG system) ── */}
-          {SHOW_CHARACTER_COMPOSITE&&(
+          {SHOW_CHARACTER_CUSTOMIZATION&&(
             <div style={{
               position:"absolute",
               left:"72.5%",
@@ -3439,7 +3441,7 @@ export default function GarageScene() {
       </AnimatePresence>
 
       {/* ── CHARACTER CUSTOMIZATION PANEL ─────────────────────────────────── */}
-      {SHOW_CHARACTER_COMPOSITE&&(
+      {SHOW_CHARACTER_CUSTOMIZATION&&(
         <div style={{position:"absolute",bottom:"3rem",right:"0.75rem",zIndex:50,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"0.5rem"}}>
           <button
             data-interactive="true"
