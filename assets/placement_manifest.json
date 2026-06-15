@@ -1,0 +1,137 @@
+{
+  "sceneCoordinateSystem": "absolute positioned PNG layers inside a relative scene container. Suggested base canvas: 1760x990. Adjust scale to match current app.",
+  "recommendedLayering": [
+    "base_garage z-index 0",
+    "rug z-index 1",
+    "furniture z-index 2",
+    "desk/computer z-index 3",
+    "character z-index 4",
+    "UI hitboxes/glows z-index 10+"
+  ],
+  "assets": {
+    "environment/base_garage.png": {
+      "x": 420,
+      "y": 120,
+      "width": 900,
+      "z": 0,
+      "role": "base background layer"
+    },
+    "environment/rug.png": {
+      "x": 720,
+      "y": 530,
+      "width": 300,
+      "z": 1,
+      "role": "under desk/chair, replaces blue blob"
+    },
+    "environment/desk_computer.png": {
+      "x": 710,
+      "y": 360,
+      "width": 340,
+      "z": 3,
+      "role": "main clickable computer/desk"
+    },
+    "character/dev_idle.png": {
+      "x": 845,
+      "y": 455,
+      "width": 170,
+      "z": 4,
+      "role": "default character state"
+    },
+    "character/dev_working_1.png": {
+      "x": 845,
+      "y": 455,
+      "width": 170,
+      "z": 4,
+      "role": "during project"
+    },
+    "character/dev_working_2.png": {
+      "x": 845,
+      "y": 455,
+      "width": 170,
+      "z": 4,
+      "role": "typing frame alternate"
+    },
+    "character/dev_tired.png": {
+      "x": 845,
+      "y": 455,
+      "width": 170,
+      "z": 4,
+      "role": "low energy"
+    },
+    "character/dev_worried.png": {
+      "x": 845,
+      "y": 455,
+      "width": 170,
+      "z": 4,
+      "role": "bad reviews/sales"
+    },
+    "character/dev_thinking.png": {
+      "x": 845,
+      "y": 455,
+      "width": 170,
+      "z": 4,
+      "role": "planning / idle thought"
+    },
+    "character/dev_resting.png": {
+      "x": 845,
+      "y": 455,
+      "width": 170,
+      "z": 4,
+      "role": "rest action"
+    },
+    "character/dev_celebrate.png": {
+      "x": 815,
+      "y": 420,
+      "width": 210,
+      "z": 4,
+      "role": "good review/release celebration"
+    },
+    "environment/bookshelf_upgrades.png": {
+      "x": 1190,
+      "y": 270,
+      "width": 220,
+      "z": 2,
+      "role": "upgrade shop clickable prop"
+    },
+    "environment/coffee_station.png": {
+      "x": 1190,
+      "y": 520,
+      "width": 170,
+      "z": 2,
+      "role": "coffee upgrade prop"
+    },
+    "environment/storage_boxes_plans.png": {
+      "x": 500,
+      "y": 450,
+      "width": 180,
+      "z": 2,
+      "role": "left-side storage decoration"
+    },
+    "environment/plant.png": {
+      "x": 560,
+      "y": 280,
+      "width": 120,
+      "z": 2,
+      "role": "corner decoration"
+    },
+    "environment/wall_poster_controller.png": {
+      "x": 570,
+      "y": 220,
+      "width": 130,
+      "z": 2,
+      "role": "wall decoration"
+    }
+  },
+  "characterStateMap": {
+    "idle": "character/dev_idle.png",
+    "working": [
+      "character/dev_working_1.png",
+      "character/dev_working_2.png"
+    ],
+    "tired": "character/dev_tired.png",
+    "worried": "character/dev_worried.png",
+    "thinking": "character/dev_thinking.png",
+    "resting": "character/dev_resting.png",
+    "celebrating": "character/dev_celebrate.png"
+  }
+}

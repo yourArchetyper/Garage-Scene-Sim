@@ -1,0 +1,223 @@
+[
+  {
+    "file": "environment/base_garage.png",
+    "source_original": "empty_workshop_corner_in_isometric_view.png",
+    "description": "Base isometric garage/workshop corner background",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 1170,
+      "height": 1024
+    }
+  },
+  {
+    "file": "environment/desk_computer.png",
+    "source_original": "stylized_wooden_desk_with_office_setup.png",
+    "description": "Main desk with retro computer, lamp, keyboard, mouse, mug, papers",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 901,
+      "height": 880
+    }
+  },
+  {
+    "file": "environment/bookshelf_upgrades.png",
+    "source_original": "wooden_bookshelf_with_books_and_gadgets.png",
+    "description": "Clickable upgrade bookshelf",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 604,
+      "height": 1105
+    }
+  },
+  {
+    "file": "environment/storage_boxes_plans.png",
+    "source_original": "office_storage_in_isometric_style.png",
+    "description": "Filing cabinet, cardboard boxes, rolled plans",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 710,
+      "height": 675
+    }
+  },
+  {
+    "file": "environment/plant.png",
+    "source_original": "isometric_potted_houseplant_illustration.png",
+    "description": "Potted plant decoration",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 606,
+      "height": 760
+    }
+  },
+  {
+    "file": "environment/coffee_station.png",
+    "source_original": "cozy_isometric_coffee_station_setup.png",
+    "description": "Coffee station upgrade prop",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 617,
+      "height": 929
+    }
+  },
+  {
+    "file": "environment/rug.png",
+    "source_original": "decorative_geometric_rug_with_tassels.png",
+    "description": "Replacement isometric rug",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 1131,
+      "height": 720
+    }
+  },
+  {
+    "file": "environment/wall_poster_controller.png",
+    "source_original": "retro_game_controller_wall_art.png",
+    "description": "Framed retro controller wall poster",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 586,
+      "height": 988
+    }
+  },
+  {
+    "file": "character/dev_idle.png",
+    "source_original": "young_man_seated_in_office_chair.png",
+    "description": "Developer idle seated state",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 607,
+      "height": 1034
+    }
+  },
+  {
+    "file": "character/dev_working_1.png",
+    "source_original": "focused_gamer_in_an_office_chair.png",
+    "description": "Developer working/typing state 1",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 615,
+      "height": 1026
+    }
+  },
+  {
+    "file": "character/dev_working_2.png",
+    "source_original": "young_man_typing_at_a_computer.png",
+    "description": "Developer working/typing state 2",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 609,
+      "height": 1013
+    }
+  },
+  {
+    "file": "character/dev_working_alt.png",
+    "source_original": "focused_gamer_in_office_chair.png",
+    "description": "Developer previous focused working variant",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 596,
+      "height": 991
+    }
+  },
+  {
+    "file": "character/dev_tired.png",
+    "source_original": "tired_figure_in_dark_office_chair.png",
+    "description": "Developer tired/slumped state",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 598,
+      "height": 997
+    }
+  },
+  {
+    "file": "character/dev_worried.png",
+    "source_original": "anxious_gamer_in_a_swivel_chair.png",
+    "description": "Developer worried/bad review state",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 617,
+      "height": 1049
+    }
+  },
+  {
+    "file": "character/dev_thinking.png",
+    "source_original": "thoughtful_gamer_in_comfy_chair.png",
+    "description": "Developer thinking/planning state",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 608,
+      "height": 1014
+    }
+  },
+  {
+    "file": "character/dev_resting.png",
+    "source_original": "relaxing_with_a_warm_drink.png",
+    "description": "Developer resting/coffee state",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 674,
+      "height": 1025
+    }
+  },
+  {
+    "file": "character/dev_celebrate.png",
+    "source_original": "celebrating_victory_in_a_swivel_chair.png",
+    "description": "Developer celebration state",
+    "source_dimensions": {
+      "width": 1254,
+      "height": 1254
+    },
+    "transparent_dimensions": {
+      "width": 652,
+      "height": 1043
+    }
+  }
+]
