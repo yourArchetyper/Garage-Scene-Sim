@@ -1,0 +1,155 @@
+Do not add employees yet.
+
+First, polish the current playable vertical slice and make the core loop feel closer to an original isometric game-dev tycoon experience.
+
+Main goal:
+Make the first 3 minutes of gameplay clear, satisfying, and visually reactive.
+
+Critical rule:
+Remove any large permanent center HUD or dashboard-like UI.
+The game should remain scene-first.
+Only keep a tiny top-left status card with:
+- Week / Year
+- Money
+- Fans
+- Energy
+- Current project progress if active
+
+Everything else must be contextual or temporary.
+
+Fix the current prototype as follows:
+
+1. Replace center HUD with diegetic / contextual feedback
+- Remove the large central progress bar.
+- Show project progress as:
+  - a small progress strip above/near the computer, OR
+  - a compact contextual panel when the computer is clicked.
+- The player should still understand progress without a dashboard.
+- When progress reaches 100%, show a small pulsing “Release Ready” badge above the computer.
+
+2. Improve first-time clarity
+Add a 5-second onboarding hint:
+- “Click the computer to start your first game.”
+- This hint disappears after the player clicks the computer.
+- Do not create a tutorial modal.
+- Use a small floating arrow or subtle glow on the computer.
+
+3. Make the garage feel alive
+During development:
+- Character should visibly type/work.
+- Monitor should flicker.
+- Floating point bubbles should appear:
+  - Design +2
+  - Tech +3
+  - Bug +1
+  - Hype +1
+- When energy is low, character becomes tired and point generation slows.
+- When release is ready, the character briefly celebrates.
+
+4. Improve project creation
+The New Project panel should feel like a compact game UI, not a form dashboard.
+It should include:
+- Game title input
+- Topic cards
+- Genre cards
+- Platform cards
+- Start button
+
+Use card selections, not plain dropdowns.
+
+5. Improve development choices
+When clicking the computer during development, show a contextual panel with:
+- Focus Design
+- Focus Tech
+- Fix Bugs
+- Crunch
+- Release Game, only when progress is 100%
+
+Each action should have clear consequences:
+- Focus Design: more design points next weeks
+- Focus Tech: more tech points next weeks
+- Fix Bugs: reduces bugs, slows progress
+- Crunch: faster progress, drains energy, increases bugs risk
+
+6. Improve review report
+Release report should be an animated overlay, but not a spreadsheet.
+Show:
+- Game title
+- Four fictional review outlets
+- Four scores
+- Average score
+- Units sold
+- Revenue
+- Fans gained
+- Profit/loss
+
+Make it feel like a game result screen.
+
+7. Improve sales logic
+After release, sales should happen over several weeks, not instantly only.
+For 4–8 weeks after release:
+- Show small weekly sales toast messages.
+- Add money gradually.
+- Fans increase gradually.
+- Better review score = longer sales tail.
+
+8. Improve shop/upgrades
+The shop should not be a permanent panel.
+Player clicks garage shelf/toolbox/desk area to open upgrades.
+
+Upgrades must appear visually after buying:
+- Faster PC appears on desk
+- Coffee Maker appears in garage corner
+- Programming Books appear on shelf
+- Whiteboard appears on wall
+
+Each upgrade should have a readable mechanical effect:
+- Faster PC: +20% tech generation
+- Coffee Maker: -25% energy loss
+- Programming Books: +15% design generation
+- Whiteboard: -20% bug generation
+
+9. Improve win condition
+The prototype must support:
+- Start first game
+- Develop it
+- Release it
+- Earn money/fans
+- Buy at least one visible upgrade
+- Start second game with the upgrade bonus active
+
+10. Add debug-friendly state display only in console
+Do not add visible debug dashboards.
+Use console.log for:
+- project started
+- week advanced
+- points generated
+- game released
+- sales tick
+- upgrade bought
+
+11. Keep code clean
+Refactor if needed into these sections:
+- state
+- data
+- rendering
+- interaction
+- simulation
+- project lifecycle
+- sales
+- upgrades
+- events
+- UI helpers
+
+12. Deliverable
+Return the complete updated HTML file with embedded CSS and JS.
+It must run directly in the browser.
+No external dependencies.
+No placeholder TODOs.
+No “next I can add...” summary instead of code.
+
+Most important:
+Do not add employees, offices, research trees, complex publishers, or save/load yet.
+Polish the first playable loop until it is obvious, interactive, and satisfying.
+
+The next test is simple: can a new player click the computer, make a game, release it, understand the result, and want to make a second one? If no, employees are irrelevant.
