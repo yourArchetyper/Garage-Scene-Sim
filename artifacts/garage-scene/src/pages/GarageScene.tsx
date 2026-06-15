@@ -19,12 +19,17 @@ const analytics = {
   firstProjectStart: null as number | null,
   firstRelease: null as number | null,
   firstUpgradeBought: null as number | null,
+  firstObjectHover: null as number | null,
+  firstModalOpen: null as number | null,
   panelsOpened: 0,
   actionsUsed: 0,
   bubblesSpawned: 0,
   bestScore: 0,
   bestRevenue: 0,
   totalGamesReleased: 0,
+  missedClicksBeforeStart: 0,
+  usedDefaultProjectSettings: false,
+  formChangedFromDefaults: false,
   // Market trend analytics
   trendsSeen: 0,
   gamesMatchingTrend: 0,
@@ -363,6 +368,12 @@ export default function GarageScene() {
   const [showShop,setShowShop]         = useState(false);
   const [showHistory,setShowHistory]   = useState(false);
 
+  // ── Affordance state ──
+  const [hoveredObject,setHoveredObject] = useState<string|null>(null);
+  const [clickRipple,setClickRipple]     = useState<{id:number;x:number;y:number;color:string}|null>(null);
+  const [missedClicks,setMissedClicks]   = useState(0);
+  const missedClicksRef = useRef(0);
+
   // ── Form ──
   const [formName,setFormName]         = useState(makeTitle);
   const [formTopic,setFormTopic]       = useState<Topic>("Fantasy");
@@ -438,6 +449,17 @@ export default function GarageScene() {
       console.log(`Best revenue: $${analytics.bestRevenue.toLocaleString()}`);
       console.log(`Total games released: ${analytics.totalGamesReleased}`);
       console.log(`Panels opened: ${analytics.panelsOpened}  Actions used: ${analytics.actionsUsed}  Bubbles spawned: ${analytics.bubblesSpawned}`);
+      const t0 = analytics.sessionStartedAt;
+      const rel = (ts:number|null)=>ts?((ts-t0)/1000).toFixed(1)+"s":"never";
+      console.group("[Affordance Timing]");
+      console.log(`Time to first object hover: ${rel(analytics.firstObjectHover)}`);
+      console.log(`Time to first computer click: ${rel(analytics.firstComputerClick)}`);
+      console.log(`Time to new project panel: ${rel(analytics.firstModalOpen)}`);
+      console.log(`Time to first project start: ${rel(analytics.firstProjectStart)}`);
+      console.log(`Used default project settings: ${analytics.usedDefaultProjectSettings}`);
+      console.log(`Changed form from defaults: ${analytics.formChangedFromDefaults}`);
+      console.log(`Missed scene clicks before first project: ${analytics.missedClicksBeforeStart}`);
+      console.groupEnd();
       console.group("[Market Trends]");
       console.log(`Trends seen this session: ${analytics.trendsSeen}`);
       console.log(`Games matching a trend: ${analytics.gamesMatchingTrend}`);
@@ -468,6 +490,20 @@ export default function GarageScene() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[project?.progress]);
+
+  // ── Enter key starts project when new game panel is open ──
+  useEffect(()=>{
+    if(!showNewGame) return;
+    function onKey(e:KeyboardEvent){
+      if(e.key==="Enter"&&!e.isComposing){
+        e.preventDefault();
+        startProject();
+      }
+    }
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[showNewGame,formName,formTopic,formGenre,formPlatform]);
 
   // ── Main simulation tick ──
   useEffect(()=>{
@@ -614,29 +650,55 @@ export default function GarageScene() {
   },[spawnBubble]);
 
   // ── Handlers ──
+  function triggerRipple(x:number,y:number,color:string){
+    setClickRipple({id:Date.now(),x,y,color});
+    setTimeout(()=>setClickRipple(null),600);
+  }
+
+  function onObjectHover(name:string|null){
+    if(name&&!analytics.firstObjectHover){
+      analytics.firstObjectHover=Date.now();
+      track("object_hovered",{object:name,firstHover:true});
+    } else if(name){
+      track("object_hovered",{object:name});
+    }
+    setHoveredObject(name);
+  }
+
   function onComputerClick(e:React.MouseEvent){
     e.stopPropagation();
     if(phase==="idle"){
-      if(!analytics.flags.clickedComputer){ analytics.firstComputerClick=Date.now(); }
+      const isFirst = !analytics.flags.clickedComputer;
+      if(isFirst){ analytics.firstComputerClick=Date.now(); }
+      if(!analytics.firstModalOpen){ analytics.firstModalOpen=Date.now(); }
+      track("computer_first_click",{isFirst});
       track("computer_clicked",{});
+      track("first_project_modal_opened",{});
       track("new_project_opened",{});
       analytics.panelsOpened++;
       if(tutorialStep==="start") setTutorialStep("pick");
       if(history.length>0) track("second_project_prompt_shown",{});
+      triggerRipple(computerPos.x,computerPos.y,"#f59e0b");
       setShowNewGame(true);
     } else if(phase==="developing"){
       analytics.panelsOpened++;
       track("computer_clicked",{phase:"developing"});
+      track("contextual_panel_opened",{panel:"computer"});
+      triggerRipple(computerPos.x,computerPos.y,"#3b82f6");
       setShowComputer(s=>!s);
+      if(!showComputer) track("contextual_panel_closed",{panel:"computer"});
       setShowShop(false);
     }
   }
 
   function onShelfClick(e:React.MouseEvent){
     e.stopPropagation();
+    const opening = !showShop;
     setShowShop(s=>!s);
     setShowComputer(false);
     track("upgrade_shop_opened",{});
+    track(opening?"contextual_panel_opened":"contextual_panel_closed",{panel:"shop"});
+    triggerRipple(bookshelfPos.x,bookshelfPos.y,"#a855f7");
     analytics.panelsOpened++;
   }
 
@@ -655,7 +717,13 @@ export default function GarageScene() {
     setFocusMode(null);
     setShowNewGame(false);
     setShowComputer(false);
+    const isDefault = formTopic==="Fantasy"&&formGenre==="RPG"&&formPlatform==="Home Computer";
     const isSecond = history.length>0;
+    if(!analytics.flags.startedFirstProject){
+      analytics.usedDefaultProjectSettings = isDefault;
+      analytics.formChangedFromDefaults = !isDefault;
+      track(isDefault?"first_project_started_from_default":"first_project_started_after_changes",{name:p.name});
+    }
     if(!analytics.flags.startedFirstProject){
       analytics.firstProjectStart = Date.now();
       track("project_started",{name:p.name});
@@ -840,7 +908,16 @@ export default function GarageScene() {
     <div className="relative w-full h-[100dvh] overflow-hidden bg-background select-none"
       onClick={e=>{
         const t=e.target as HTMLElement;
-        if(!t.closest("[data-panel]")){setShowComputer(false);setShowShop(false);}
+        if(!t.closest("[data-panel]")){
+          setShowComputer(false);
+          setShowShop(false);
+          if(!analytics.flags.startedFirstProject){
+            missedClicksRef.current += 1;
+            analytics.missedClicksBeforeStart = missedClicksRef.current;
+            setMissedClicks(missedClicksRef.current);
+            track("missed_scene_click",{count:missedClicksRef.current});
+          }
+        }
       }}
     >
 
@@ -849,9 +926,11 @@ export default function GarageScene() {
         @keyframes bugWiggle { 0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)} }
         @keyframes releasePulse { 0%,100%{box-shadow:0 0 0 0 #22c55e55}50%{box-shadow:0 0 0 8px #22c55e00} }
         @keyframes pillFadeIn { from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)} }
+        @keyframes hoverLabelIn { from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)} }
         .bug-wiggle { animation: bugWiggle 0.4s ease-in-out infinite; display:inline-block; }
         .release-pulse { animation: releasePulse 1.2s ease-in-out infinite; }
         .pill-appear { animation: pillFadeIn 0.3s ease-out both; }
+        .hover-label { animation: hoverLabelIn 0.15s ease-out both; }
       `}</style>
 
       {/* ── SVG SCENE ─────────────────────────────────────────────────────── */}
@@ -963,11 +1042,13 @@ export default function GarageScene() {
           <P p={[[4.2,5.1,1.72],[4.4,5.1,1.72],[4.4,5.3,1.72],[4.2,5.3,1.72]]} fill="#aaa"/>
           <P p={[[4.2,5.1,1.72],[4.2,5.3,1.72],[4.2,5.3,2.3],[4.2,5.1,2.3]]} fill="#999"/>
 
-          {/* COMPUTER GLOW before first click */}
+          {/* COMPUTER GLOW before first click — intensifies after 2 missed clicks */}
           {tutorialStep==="start"&&(
-            <motion.ellipse cx={computerPos.x} cy={computerPos.y+10} rx={55} ry={22}
+            <motion.ellipse cx={computerPos.x} cy={computerPos.y+10}
+              rx={missedClicks>=2?72:55} ry={missedClicks>=2?28:22}
               fill="#f59e0b" opacity={0}
-              animate={{opacity:[0,0.22,0]}} transition={{repeat:Infinity,duration:1.6}}/>
+              animate={{opacity:missedClicks>=2?[0,0.42,0]:[0,0.22,0]}}
+              transition={{repeat:Infinity,duration:missedClicks>=2?1.1:1.6}}/>
           )}
           {/* RELEASE-READY green glow */}
           {readyToRelease&&(
@@ -1097,13 +1178,106 @@ export default function GarageScene() {
             ))}
           </AnimatePresence>
 
-          {/* PROGRESSIVE HINT */}
+          {/* ── INVISIBLE HITBOXES (larger click targets) ── */}
+          {/* Computer / monitor / desk hitbox */}
+          <polygon
+            points={`${iso(3.4,4.0,1.72).x},${iso(3.4,4.0,1.72).y} ${iso(5.4,4.0,1.72).x},${iso(5.4,4.0,1.72).y} ${iso(5.4,4.0,2.85).x},${iso(5.4,4.0,2.85).y} ${iso(3.4,4.0,2.85).x},${iso(3.4,4.0,2.85).y}`}
+            fill="transparent" style={{cursor:"pointer"}}
+            onMouseEnter={()=>onObjectHover("computer")} onMouseLeave={()=>onObjectHover(null)}
+            onClick={onComputerClick}/>
+          <polygon
+            points={`${iso(3.85,5.75,1.72).x},${iso(3.85,5.75,1.72).y} ${iso(4.75,5.75,1.72).x},${iso(4.75,5.75,1.72).y} ${iso(4.75,5.75,2.85).x},${iso(4.75,5.75,2.85).y} ${iso(3.85,5.75,2.85).x},${iso(3.85,5.75,2.85).y}`}
+            fill="transparent" style={{cursor:"pointer"}}
+            onMouseEnter={()=>onObjectHover("computer")} onMouseLeave={()=>onObjectHover(null)}
+            onClick={onComputerClick}/>
+          {/* Bookshelf hitbox */}
+          <polygon
+            points={`${iso(7.6,0,0).x},${iso(7.6,0,0).y} ${iso(10.5,0,0).x},${iso(10.5,0,0).y} ${iso(10.5,0,5.2).x},${iso(10.5,0,5.2).y} ${iso(7.6,0,5.2).x},${iso(7.6,0,5.2).y}`}
+            fill="transparent" style={{cursor:"pointer"}}
+            onMouseEnter={()=>onObjectHover("shelf")} onMouseLeave={()=>onObjectHover(null)}
+            onClick={(e)=>{e.stopPropagation();onShelfClick(e);}}/>
+          {/* Desk hitbox */}
+          <polygon
+            points={`${iso(3.0,3.0,1.72).x},${iso(3.0,3.0,1.72).y} ${iso(5.5,3.0,1.72).x},${iso(5.5,3.0,1.72).y} ${iso(5.5,7.2,1.72).x},${iso(5.5,7.2,1.72).y} ${iso(3.0,7.2,1.72).x},${iso(3.0,7.2,1.72).y}`}
+            fill="transparent" style={{cursor:phase==="idle"?"default":"pointer"}}
+            onMouseEnter={()=>onObjectHover("desk")} onMouseLeave={()=>onObjectHover(null)}/>
+          {/* Developer character hitbox */}
+          <polygon
+            points={`${iso(4.9,4.5,0).x},${iso(4.9,4.5,0).y} ${iso(6.1,4.5,0).x},${iso(6.1,4.5,0).y} ${iso(6.1,4.5,2.5).x},${iso(6.1,4.5,2.5).y} ${iso(4.9,4.5,2.5).x},${iso(4.9,4.5,2.5).y}`}
+            fill="transparent" style={{cursor:"default"}}
+            onMouseEnter={()=>onObjectHover("char")} onMouseLeave={()=>onObjectHover(null)}/>
+
+          {/* ── HOVER GLOWS ── */}
+          {hoveredObject==="computer"&&tutorialStep!=="start"&&(
+            <ellipse cx={computerPos.x} cy={computerPos.y+12} rx={62} ry={26} fill="#f59e0b" opacity={0.1}/>
+          )}
+          {hoveredObject==="computer"&&tutorialStep==="start"&&(
+            <ellipse cx={computerPos.x} cy={computerPos.y+12} rx={62} ry={26} fill="#f59e0b" opacity={0.15}/>
+          )}
+          {hoveredObject==="shelf"&&(
+            <ellipse cx={bookshelfPos.x} cy={bookshelfPos.y+28} rx={44} ry={18} fill="#a855f7" opacity={0.1}/>
+          )}
+          {hoveredObject==="char"&&(
+            <ellipse cx={charHead.x} cy={charHead.y+14} rx={30} ry={13} fill="#3b82f6" opacity={0.1}/>
+          )}
+          {hoveredObject==="desk"&&(
+            <ellipse cx={deskTop.x} cy={deskTop.y+10} rx={50} ry={20} fill="#d97706" opacity={0.07}/>
+          )}
+
+          {/* ── HOVER LABELS ── */}
+          {hoveredObject==="computer"&&(
+            <g className="hover-label" style={{pointerEvents:"none"}}>
+              <rect x={computerPos.x-36} y={computerPos.y-76} width={72} height={19} rx={9} fill="#111827" opacity={0.82}/>
+              <text x={computerPos.x} y={computerPos.y-62} textAnchor="middle" fontSize="9.5" fontWeight="bold" fill="white">Computer</text>
+            </g>
+          )}
+          {hoveredObject==="shelf"&&(
+            <g className="hover-label" style={{pointerEvents:"none"}}>
+              <rect x={bookshelfPos.x-34} y={bookshelfPos.y-42} width={68} height={19} rx={9} fill="#111827" opacity={0.82}/>
+              <text x={bookshelfPos.x} y={bookshelfPos.y-28} textAnchor="middle" fontSize="9.5" fontWeight="bold" fill="white">Upgrades</text>
+            </g>
+          )}
+          {hoveredObject==="char"&&(
+            <g className="hover-label" style={{pointerEvents:"none"}}>
+              <rect x={charHead.x-36} y={charHead.y-48} width={72} height={19} rx={9} fill="#111827" opacity={0.82}/>
+              <text x={charHead.x} y={charHead.y-34} textAnchor="middle" fontSize="9.5" fontWeight="bold" fill="white">Developer</text>
+            </g>
+          )}
+          {hoveredObject==="desk"&&(
+            <g className="hover-label" style={{pointerEvents:"none"}}>
+              <rect x={deskTop.x-22} y={deskTop.y-42} width={44} height={19} rx={9} fill="#111827" opacity={0.82}/>
+              <text x={deskTop.x} y={deskTop.y-28} textAnchor="middle" fontSize="9.5" fontWeight="bold" fill="white">Desk</text>
+            </g>
+          )}
+
+          {/* ── CLICK RIPPLE ── */}
+          <AnimatePresence>
+            {clickRipple&&(
+              <motion.circle key={clickRipple.id}
+                cx={clickRipple.x} cy={clickRipple.y} r={8}
+                fill="none" stroke={clickRipple.color} strokeWidth={2.5}
+                initial={{r:8,opacity:0.85}} animate={{r:46,opacity:0}}
+                exit={{opacity:0}} transition={{duration:0.52,ease:"easeOut"}}/>
+            )}
+          </AnimatePresence>
+
+          {/* PROGRESSIVE HINT — repositioned above monitor screen */}
           {currentHint&&(
-            <motion.g animate={{opacity:[0.7,1,0.7],y:[0,-4,0]}} transition={{repeat:Infinity,duration:1.8}}>
-              <rect x={computerPos.x-92} y={computerPos.y-46} width={184} height={22} rx={11} fill="#f59e0b" opacity={0.93}/>
-              <text x={computerPos.x} y={computerPos.y-31} textAnchor="middle" fontSize="9.5" fontWeight="bold"
+            <motion.g animate={{opacity:[0.7,1,0.7],y:[0,-3,0]}} transition={{repeat:Infinity,duration:1.8}}>
+              <rect x={monitorPos.x-94} y={monitorPos.y-72} width={188} height={22} rx={11} fill="#f59e0b" opacity={0.93}/>
+              <text x={monitorPos.x} y={monitorPos.y-57} textAnchor="middle" fontSize="9.5" fontWeight="bold"
                 fill="white" stroke="rgba(0,0,0,0.2)" strokeWidth="1" paintOrder="stroke">{currentHint}</text>
-              <polygon points={`${computerPos.x},${computerPos.y-8} ${computerPos.x-6},${computerPos.y-24} ${computerPos.x+6},${computerPos.y-24}`} fill="#f59e0b"/>
+              <polygon points={`${monitorPos.x},${monitorPos.y-20} ${monitorPos.x-6},${monitorPos.y-38} ${monitorPos.x+6},${monitorPos.y-38}`} fill="#f59e0b"/>
+            </motion.g>
+          )}
+
+          {/* "Try the computer" nudge after 2 missed clicks */}
+          {missedClicks>=2&&tutorialStep==="start"&&(
+            <motion.g animate={{opacity:[0.8,1,0.8]}} transition={{repeat:Infinity,duration:1.4}}>
+              <rect x={computerPos.x-56} y={computerPos.y+28} width={112} height={20} rx={10} fill="#92400e" opacity={0.88}/>
+              <text x={computerPos.x} y={computerPos.y+42} textAnchor="middle" fontSize="9.5" fontWeight="bold" fill="#fef3c7">
+                Try the computer. →
+              </text>
             </motion.g>
           )}
 
@@ -1425,7 +1599,7 @@ export default function GarageScene() {
 
               <div className="flex gap-2">
                 <button onClick={()=>setShowNewGame(false)} className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm font-semibold hover:bg-gray-50">Cancel</button>
-                <button onClick={startProject} data-testid="button-start" className="flex-2 px-6 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm transition-colors active:scale-95">Start!</button>
+                <button onClick={startProject} data-testid="button-start" className="flex-2 px-8 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-sm transition-colors active:scale-95 shadow-md shadow-amber-200">▶ Start Game</button>
               </div>
             </motion.div>
           </motion.div>

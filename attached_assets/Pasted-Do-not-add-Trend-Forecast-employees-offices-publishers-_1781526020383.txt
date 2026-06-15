@@ -1,0 +1,197 @@
+Do not add Trend Forecast, employees, offices, publishers, burnout, save/load, contracts, research trees, or additional strategy systems.
+
+This pass is focused on first-click activation and scene affordance.
+
+Problem:
+The garage scene looks clean, but it can still feel like a static illustration. The player needs to instantly understand that objects are clickable and that the scene is interactive.
+
+Goal:
+Make the first 10 seconds feel obviously playable:
+
+* Computer is clearly clickable.
+* Hovering objects gives feedback.
+* Clicking objects gives visible response.
+* Interactive objects have forgiving hitboxes.
+* The first project flow opens fast and feels game-like.
+
+1. Add object hover affordance
+
+Interactive objects:
+
+* computer / monitor
+* developer character
+* bookshelf / shop
+* desk
+* whiteboard if owned
+* coffee maker if owned
+* released report/newspaper if present
+
+On hover:
+
+* cursor becomes pointer
+* object gets subtle glow or outline
+* small label appears above object:
+
+  * “Computer”
+  * “Developer”
+  * “Upgrades”
+  * “Desk”
+* label fades in quickly
+* label disappears on mouse leave
+
+Do not use heavy neon effects.
+Keep it subtle and isometric-friendly.
+
+2. Add larger invisible hitboxes
+
+Some clickable SVG polygons are too small.
+
+Add transparent hitbox shapes around:
+
+* computer
+* monitor
+* bookshelf
+* developer
+* desk
+
+Rules:
+
+* hitboxes should be invisible
+* hitboxes should not visually affect the scene
+* hitboxes must call e.stopPropagation()
+* hitboxes should not overlap so much that clicks feel wrong
+
+Success:
+A player should not need pixel-perfect clicking to open the computer panel.
+
+3. Improve first computer call-to-action
+
+At game start:
+
+* computer has a soft pulsing glow
+* hint arrow should point more precisely to the monitor/computer, not the general desk area
+* hint text should be slightly above the computer and not overlap the scene awkwardly
+* after the first click, remove glow permanently
+
+Text:
+“Click the computer to start your first game.”
+
+4. Add click response
+
+When clicking an interactive object:
+
+* show a quick click ripple or small pulse on that object
+* play no audio unless already implemented
+* panel opens immediately
+* object remains subtly highlighted while its panel is open
+
+Examples:
+
+* Computer click → monitor pulse
+* Shelf click → books/shelf pulse
+* Developer click → character pulse
+* Desk click → desk pulse
+
+5. Improve contextual panel positioning
+
+The contextual panel should:
+
+* appear near the clicked object on desktop
+* not cover the monitor/project strip
+* not cover the top-left status card
+* stay inside viewport bounds
+* use mobile bottom-sheet only on narrow screens
+
+If panel would overflow screen:
+
+* clamp x/y to viewport
+* keep 16px margin
+
+6. Remove unwanted external-looking UI
+
+If the bottom-right “Build yours free” pill is part of the app code, remove it completely.
+
+If it is injected by the preview/artifact platform and cannot be controlled, ignore it.
+
+The actual game UI should not contain SaaS/demo CTA elements.
+
+7. Make the first New Project panel faster
+
+When the player clicks the computer for the first time:
+
+* open directly to New Project panel, not an intermediate menu
+* preselect Fantasy + RPG + Home Computer
+* auto-fill a random game name
+* make the Start button visually primary
+* pressing Enter should start the project if valid
+
+The first project should require one click after opening:
+Computer → Start Project.
+
+The player can change options, but should not be forced to.
+
+8. Add hover/click analytics
+
+Track:
+
+* object_hovered
+* object_clicked
+* computer_first_click
+* first_project_modal_opened
+* first_project_started_from_default
+* first_project_started_after_changes
+* contextual_panel_opened
+* contextual_panel_closed
+
+Update printSessionSummary() with:
+
+* time to first object hover
+* time to first computer click
+* time to new project panel
+* time to first project start
+* whether player used default project settings
+* number of missed/background clicks before first project start
+
+9. Add missed-click tracking
+
+When player clicks empty scene/background before starting first project:
+
+* track missed_scene_click
+* after 2 missed clicks, make the computer glow stronger and show:
+  “Try the computer.”
+
+Do not show a modal.
+
+10. Preserve UI rules
+
+Do not add:
+
+* permanent bottom panel
+* large dashboard
+* full-screen management UI
+* spreadsheet screens
+* extra strategy systems
+
+Allowed persistent UI:
+
+* tiny top-left status card
+* tiny top-right objective pill
+* compact top-center project pill only during active project
+* temporary market trend badge only when trend is active
+
+Everything else should be contextual, temporary, or attached to scene objects.
+
+11. Deliverable
+
+Return the complete updated HTML file with embedded CSS and JS.
+It must run directly in browser.
+No external dependencies.
+No placeholder TODOs.
+No “next I can add...” summary instead of code.
+
+Success criteria:
+A new player should be able to understand within 5 seconds:
+
+* the computer is clickable
+* clicking it starts the game-making loop
+* the garage is interactive, not just decorative
