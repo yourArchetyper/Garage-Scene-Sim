@@ -1,0 +1,177 @@
+Do not add burnout, employees, offices, research trees, save/load, publishers, or new complex systems yet.
+
+The next pass is not feature expansion. It is activation validation.
+
+Goal:
+Add lightweight first-session instrumentation and tighten the first playable loop so we can tell whether a new player understands and completes the core garage game-dev cycle.
+
+Core loop to validate:
+Click computer → start project → develop → release → see reviews/sales → buy upgrade → start second project.
+
+1. Add an internal funnel tracker
+
+Create a simple analytics object in JS:
+
+const analytics = {
+  sessionStartedAt: Date.now(),
+  events: [],
+  flags: {
+    clickedComputer: false,
+    openedNewProject: false,
+    startedFirstProject: false,
+    reachedReleaseReady: false,
+    releasedFirstGame: false,
+    viewedReviewReport: false,
+    earnedMoney: false,
+    boughtUpgrade: false,
+    startedSecondProject: false
+  }
+};
+
+Add a function:
+
+function track(eventName, data = {}) {
+  analytics.events.push({
+    event: eventName,
+    week: state.week,
+    year: state.year,
+    timestamp: Date.now(),
+    data
+  });
+  console.log("[analytics]", eventName, data);
+}
+
+Track at minimum:
+- session_start
+- computer_clicked
+- new_project_opened
+- project_started
+- development_focus_changed
+- release_ready
+- game_released
+- review_report_viewed
+- sales_tick
+- upgrade_shop_opened
+- upgrade_bought
+- second_project_started
+
+2. Add a session summary command
+
+Expose this in console:
+
+window.printSessionSummary = function() { ... }
+
+It should print:
+- Time played in seconds
+- Whether each funnel step was completed
+- Time to first computer click
+- Time to first project started
+- Time to first release
+- Time to first upgrade bought
+- Number of contextual panels opened
+- Number of project actions used
+- Whether the player started a second project
+
+Also add:
+
+window.resetGame = function() { ... }
+
+3. Improve the first 30 seconds
+
+Make the first-time path impossible to miss:
+- Computer has a subtle glow until first clicked.
+- Floating hint says: “Click the computer to start your first game.”
+- After computer click, hint changes to: “Pick a topic, genre, and platform.”
+- After project starts, hint changes to: “Time is moving. Click the computer to guide development.”
+- After progress reaches 100%, hint changes to: “Release your game from the computer panel.”
+- After release, hint changes to: “Click the shelf to buy your first upgrade.”
+- After buying an upgrade, hint changes to: “Start a second game and beat your first score.”
+- Then tutorial hints disappear permanently.
+
+No blocking tutorial modal.
+
+4. Make project creation faster
+
+The New Project panel should default to valid choices:
+- Random generated game title
+- Preselected strong combo:
+  - Fantasy + RPG + Home Computer
+- Player can change them, but can also start immediately.
+
+Add a “Randomize” button that picks a valid combo.
+
+5. Make release timing faster for prototype testing
+
+A first game should be releasable within about 60–90 seconds of real time.
+
+Adjust point/progress generation so:
+- First project reaches 100% in roughly 30–45 in-game weeks.
+- Player actions can speed this up.
+- Fix Bugs should be useful but not mandatory.
+
+Do not make the player wait several minutes to see the result.
+
+6. Add clear post-release comparison
+
+After releasing a game, store it in state.releasedGames.
+
+When starting/releasing the second game, show:
+- Previous best score
+- Previous best revenue
+- Whether this game beat the last one
+
+In the release report, add:
+- “New best score!” if applicable
+- “Revenue record!” if applicable
+
+This gives the player a reason to make a second game.
+
+7. Improve feedback when actions are clicked
+
+Every contextual action should immediately show visible feedback:
+- Focus Design → blue design bubble burst near computer
+- Focus Tech → green tech bubble burst near monitor
+- Fix Bugs → bug icons shrink/disappear
+- Crunch → red warning pulse + faster typing
+- Rest → character relaxes, energy visibly rises
+
+Avoid silent actions.
+
+8. Add a tiny objective tracker
+
+Add a very small top-right objective pill, not a dashboard.
+
+It should show only one current objective:
+- “Start your first game”
+- “Reach 100% progress”
+- “Release your game”
+- “Buy an upgrade”
+- “Start your second game”
+
+This objective pill should be compact and dismissible.
+Do not add a quest log.
+
+9. Preserve scene-first UI
+
+Do not reintroduce:
+- Large center HUD
+- Permanent bottom panel
+- Spreadsheet dashboard
+- Full-screen management menus
+
+Allowed persistent UI:
+- Tiny top-left status card
+- Tiny top-right current objective pill
+
+Everything else remains contextual, temporary, or diegetic.
+
+10. Deliverable
+
+Return the complete updated HTML file with embedded CSS and JS.
+It must run directly in the browser.
+No external dependencies.
+No placeholder TODOs.
+No “next I can add...” summary instead of code.
+
+Most important:
+This pass is successful only if a brand-new player can complete the first full loop and understand why they should start the second game.
