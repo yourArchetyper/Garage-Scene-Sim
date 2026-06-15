@@ -18,10 +18,11 @@ export type PngSceneLayer = {
   optional?: boolean;
 };
 
+export const levelAssets = {
+  level1Base: new URL("../../../assets/level1.png", import.meta.url).href,
+} as const;
+
 export const garageAssets = {
-  base: new URL("../../../assets/transparent_png/environment/base_garage.png", import.meta.url).href,
-  rug: new URL("../../../assets/transparent_png/environment/rug.png", import.meta.url).href,
-  deskComputer: new URL("../../../assets/transparent_png/environment/desk_computer.png", import.meta.url).href,
   developerIdle: new URL("../../../assets/transparent_png/character/dev_idle.png", import.meta.url).href,
   developerWorking1: new URL("../../../assets/transparent_png/character/dev_working_1.png", import.meta.url).href,
   developerWorking2: new URL("../../../assets/transparent_png/character/dev_working_2.png", import.meta.url).href,
@@ -31,33 +32,34 @@ export const garageAssets = {
   developerThinking: new URL("../../../assets/transparent_png/character/dev_thinking.png", import.meta.url).href,
   developerResting: new URL("../../../assets/transparent_png/character/dev_resting.png", import.meta.url).href,
   developerCelebrate: new URL("../../../assets/transparent_png/character/dev_celebrate.png", import.meta.url).href,
-  bookshelf: new URL("../../../assets/transparent_png/environment/bookshelf_upgrades.png", import.meta.url).href,
-  coffeeStation: new URL("../../../assets/transparent_png/environment/coffee_station.png", import.meta.url).href,
-  storage: new URL("../../../assets/transparent_png/environment/storage_boxes_plans.png", import.meta.url).href,
-  plant: new URL("../../../assets/transparent_png/environment/plant.png", import.meta.url).href,
-  poster: new URL("../../../assets/transparent_png/environment/wall_poster_controller.png", import.meta.url).href,
 } as const;
 
-export const PNG_SCENE_WIDTH = 1760;
-export const PNG_SCENE_HEIGHT = 990;
+export const PNG_SCENE_WIDTH = 1448;
+export const PNG_SCENE_HEIGHT = 1086;
 
 export const pngSceneLayers: PngSceneLayer[] = [
-  { id: "base",        asset: garageAssets.base,        alt: "Isometric garage room",        x: 420, y: 120, width: 900, z: 0 },
-  { id: "bookshelf",   asset: garageAssets.bookshelf,   alt: "Upgrade bookshelf",            x: 1190, y: 270, width: 220, z: 2 },
-  { id: "deskComputer",asset: garageAssets.deskComputer,alt: "Desk with retro computer",     x: 710, y: 360, width: 340, z: 3 },
+  {
+    id: "level1Base",
+    asset: levelAssets.level1Base,
+    alt: "Isometric garage room – Level 1",
+    x: 0,
+    y: 0,
+    width: PNG_SCENE_WIDTH,
+    z: 0,
+  },
 ];
 
 export const developerLayerBase = {
-  x: 845,
-  y: 455,
-  width: 170,
+  x: 870,
+  y: 530,
+  width: 155,
   z: 4,
 };
 
 export const developerCelebrateLayer = {
-  x: 815,
-  y: 420,
-  width: 210,
+  x: 840,
+  y: 495,
+  width: 195,
   z: 4,
 };
 

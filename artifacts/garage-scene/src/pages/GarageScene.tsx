@@ -10,7 +10,6 @@ import {
 import {
   developerCelebrateLayer,
   developerLayerBase,
-  garageAssets,
   getDeveloperSprite,
   PNG_SCENE_HEIGHT,
   PNG_SCENE_WIDTH,
@@ -566,12 +565,12 @@ export default function GarageScene() {
   projectRef.current    = project;
   currentTrendRef.current = currentTrend;
 
-  // ── ISO anchors ──
-  const charHead     = {x:930,y:520};
-  const monitorPos   = {x:860,y:430};
-  const bookshelfPos = {x:1305,y:390};
-  const deskTop      = {x:850,y:505};
-  const computerPos  = {x:860,y:430};
+  // ── ISO anchors (1448 × 1086 coordinate space, level1.png) ──
+  const charHead     = {x:960,y:560};
+  const monitorPos   = {x:1010,y:490};
+  const bookshelfPos = {x:300,y:460};
+  const deskTop      = {x:1020,y:575};
+  const computerPos  = {x:1010,y:490};
 
   // ── Bubble spawner ──
   const spawnBubble = useCallback((text:string,color:string,svgX:number,svgY:number)=>{
@@ -1768,9 +1767,10 @@ export default function GarageScene() {
       <div className="absolute inset-0 flex items-center justify-center pt-10 pointer-events-none">
         <div
           className="garage-png-scene relative pointer-events-auto"
-          style={{width:"min(94vw, calc(86vh * 16 / 9))",aspectRatio:"16 / 9"}}
+          style={{width:"min(90vw, calc(88vh * 4 / 3))",aspectRatio:"4 / 3"}}
           onMouseLeave={()=>onObjectHover(null)}
         >
+          {/* ── LEVEL 1 SINGLE BASE IMAGE ── */}
           {pngSceneLayers.map(layer=>(
             <img
               key={layer.id}
@@ -1781,82 +1781,17 @@ export default function GarageScene() {
               style={sceneLayerStyle(layer.x,layer.y,layer.width,layer.z)}
             />
           ))}
-          {upgrades.has("coffeemaker")&&(
-            <img
-              className="scene-layer"
-              src={garageAssets.coffeeStation}
-              alt="Coffee station"
-              draggable={false}
-              style={sceneLayerStyle(1190,520,170,5)}
-            />
-          )}
 
-          {/* ── CONTACT SHADOWS ── */}
-          {/* Desk + computer shadow */}
-          <div style={{
-            position:"absolute",
-            left:`${(680/1760)*100}%`,
-            top:`${(610/990)*100}%`,
-            width:`${(400/1760)*100}%`,
-            height:`${(56/990)*100}%`,
-            borderRadius:"50%",
-            background:"rgba(20,8,0,0.17)",
-            filter:"blur(10px)",
-            zIndex:1,
-            pointerEvents:"none",
-          }}/>
-          {/* Developer / chair shadow */}
-          <div style={{
-            position:"absolute",
-            left:`${(870/1760)*100}%`,
-            top:`${(665/990)*100}%`,
-            width:`${(150/1760)*100}%`,
-            height:`${(32/990)*100}%`,
-            borderRadius:"50%",
-            background:"rgba(20,8,0,0.15)",
-            filter:"blur(7px)",
-            zIndex:1,
-            pointerEvents:"none",
-          }}/>
-          {/* Bookshelf shadow */}
-          <div style={{
-            position:"absolute",
-            left:`${(1215/1760)*100}%`,
-            top:`${(615/990)*100}%`,
-            width:`${(190/1760)*100}%`,
-            height:`${(38/990)*100}%`,
-            borderRadius:"50%",
-            background:"rgba(20,8,0,0.13)",
-            filter:"blur(8px)",
-            zIndex:1,
-            pointerEvents:"none",
-          }}/>
-          {/* Coffee station shadow (only when visible) */}
-          {upgrades.has("coffeemaker")&&(
-            <div style={{
-              position:"absolute",
-              left:`${(1185/1760)*100}%`,
-              top:`${(675/990)*100}%`,
-              width:`${(110/1760)*100}%`,
-              height:`${(24/990)*100}%`,
-              borderRadius:"50%",
-              background:"rgba(20,8,0,0.12)",
-              filter:"blur(5px)",
-              zIndex:1,
-              pointerEvents:"none",
-            }}/>
-          )}
-
-          {/* ── MONITOR GLOW OVERLAY ── */}
+          {/* ── MONITOR GLOW OVERLAY (CRT screen, right-side desk) ── */}
           {monitorGlowColor&&(
             <div
               className={monitorGlowCssClass}
               style={{
                 position:"absolute",
-                left:`${(755/1760)*100}%`,
-                top:`${(350/990)*100}%`,
-                width:`${(215/1760)*100}%`,
-                height:`${(130/990)*100}%`,
+                left:`${(890/1448)*100}%`,
+                top:`${(360/1086)*100}%`,
+                width:`${(210/1448)*100}%`,
+                height:`${(130/1086)*100}%`,
                 borderRadius:"40%",
                 background:monitorGlowColor,
                 filter:"blur(18px)",
@@ -1867,36 +1802,36 @@ export default function GarageScene() {
             />
           )}
 
-          {/* ── LAMP WARM GLOW ── */}
+          {/* ── LAMP WARM GLOW (desk lamp, right side) ── */}
           <div className="lamp-glow-div" style={{
             position:"absolute",
-            left:`${(760/1760)*100}%`,
-            top:`${(295/990)*100}%`,
-            width:`${(230/1760)*100}%`,
-            height:`${(210/990)*100}%`,
-            background:"radial-gradient(ellipse at 52% 18%, rgba(255,215,90,0.30) 0%, rgba(255,190,60,0.12) 38%, transparent 68%)",
+            left:`${(900/1448)*100}%`,
+            top:`${(290/1086)*100}%`,
+            width:`${(240/1448)*100}%`,
+            height:`${(220/1086)*100}%`,
+            background:"radial-gradient(ellipse at 52% 18%, rgba(255,215,90,0.28) 0%, rgba(255,190,60,0.10) 38%, transparent 68%)",
             pointerEvents:"none",
             zIndex:3,
           }}/>
 
-          {/* ── DUST MOTES (lamp/monitor area) ── */}
+          {/* ── DUST MOTES (lamp / monitor area, right side) ── */}
           {([
-            {x:792,y:355,s:2,dx:4,dy:-52,dur:4.2,delay:0},
-            {x:830,y:320,s:1,dx:-3,dy:-48,dur:3.8,delay:0.7},
-            {x:868,y:370,s:2,dx:7,dy:-58,dur:4.6,delay:1.5},
-            {x:810,y:390,s:1,dx:-5,dy:-45,dur:3.5,delay:2.2},
-            {x:855,y:342,s:2,dx:3,dy:-62,dur:5.0,delay:0.4},
-            {x:795,y:308,s:1,dx:6,dy:-50,dur:4.1,delay:3.0},
-            {x:840,y:328,s:2,dx:-4,dy:-55,dur:4.8,delay:1.1},
-            {x:878,y:360,s:1,dx:5,dy:-44,dur:3.6,delay:2.8},
-            {x:820,y:380,s:2,dx:-2,dy:-60,dur:4.4,delay:0.9},
-            {x:860,y:315,s:1,dx:4,dy:-50,dur:3.9,delay:3.5},
-            {x:900,y:350,s:2,dx:-6,dy:-48,dur:4.7,delay:1.8},
-            {x:785,y:340,s:1,dx:3,dy:-53,dur:4.3,delay:2.5},
+            {x:932,y:368,s:2,dx:4,dy:-52,dur:4.2,delay:0},
+            {x:968,y:335,s:1,dx:-3,dy:-48,dur:3.8,delay:0.7},
+            {x:1006,y:378,s:2,dx:7,dy:-58,dur:4.6,delay:1.5},
+            {x:948,y:398,s:1,dx:-5,dy:-45,dur:3.5,delay:2.2},
+            {x:990,y:350,s:2,dx:3,dy:-62,dur:5.0,delay:0.4},
+            {x:935,y:318,s:1,dx:6,dy:-50,dur:4.1,delay:3.0},
+            {x:975,y:340,s:2,dx:-4,dy:-55,dur:4.8,delay:1.1},
+            {x:1018,y:370,s:1,dx:5,dy:-44,dur:3.6,delay:2.8},
+            {x:955,y:390,s:2,dx:-2,dy:-60,dur:4.4,delay:0.9},
+            {x:997,y:325,s:1,dx:4,dy:-50,dur:3.9,delay:3.5},
+            {x:1038,y:360,s:2,dx:-6,dy:-48,dur:4.7,delay:1.8},
+            {x:925,y:348,s:1,dx:3,dy:-53,dur:4.3,delay:2.5},
           ] as const).map((p,i)=>(
             <div key={i} className="dust-particle" style={{
-              left:`${(p.x/1760)*100}%`,
-              top:`${(p.y/990)*100}%`,
+              left:`${(p.x/1448)*100}%`,
+              top:`${(p.y/1086)*100}%`,
               width:`${p.s}px`,
               height:`${p.s}px`,
               background:`rgba(255,248,210,${0.50+((i%3)*0.10)})`,
@@ -1908,15 +1843,15 @@ export default function GarageScene() {
             }}/>
           ))}
 
-          {/* ── COFFEE STEAM ── */}
+          {/* ── COFFEE STEAM (workbench / shelf area, visible when coffeemaker owned) ── */}
           {upgrades.has("coffeemaker")&&([
-            {x:1248,y:515,dur:2.3,delay:0},
-            {x:1260,y:512,dur:2.8,delay:1.1},
-            {x:1253,y:518,dur:2.5,delay:0.6},
+            {x:268,y:430,dur:2.3,delay:0},
+            {x:280,y:427,dur:2.8,delay:1.1},
+            {x:273,y:433,dur:2.5,delay:0.6},
           ] as const).map((w,i)=>(
             <div key={i} className="steam-wisp" style={{
-              left:`${(w.x/1760)*100}%`,
-              top:`${(w.y/990)*100}%`,
+              left:`${(w.x/1448)*100}%`,
+              top:`${(w.y/1086)*100}%`,
               width:"3px",
               height:"14px",
               background:"rgba(240,240,240,0.40)",
@@ -1927,18 +1862,18 @@ export default function GarageScene() {
             }}/>
           ))}
 
-
-          {/* ── SHELF UPGRADE OBJECTIVE PULSE ── */}
+          {/* ── SHELF / WORKBENCH UPGRADE OBJECTIVE PULSE ── */}
           {objectiveText==="Buy an upgrade"&&(
             <div className="shelf-upgrade-pulse" style={{
-              left:`${(1183/1760)*100}%`,
-              top:`${(262/990)*100}%`,
-              width:`${(244/1760)*100}%`,
-              height:`${(368/990)*100}%`,
+              left:`${(80/1448)*100}%`,
+              top:`${(220/1086)*100}%`,
+              width:`${(390/1448)*100}%`,
+              height:`${(410/1086)*100}%`,
               zIndex:11,
             }}/>
           )}
 
+          {/* ── DEVELOPER SPRITE (seated at computer desk, right side) ── */}
           <motion.img
             key={developerSprite}
             className="scene-layer"
@@ -1959,48 +1894,54 @@ export default function GarageScene() {
             style={sceneLayerStyle(developerLayer.x,developerLayer.y,developerLayer.width,developerLayer.z)}
           />
 
+          {/* ── INTERACTION HITBOXES ── */}
+
+          {/* A. COMPUTER — right-side CRT desk, primary action */}
           <button
             className="scene-hitbox"
             data-interactive="computer"
             aria-label="Computer"
-            style={sceneHitboxStyle(770,365,240,170)}
+            style={sceneHitboxStyle(840,330,310,270)}
             onMouseEnter={()=>onObjectHover("computer")}
             onClick={onComputerClick}
           />
+          {/* B. UPGRADES / SHOP — left-wall shelf & workbench area */}
           <button
             className="scene-hitbox"
             data-interactive="shelf"
-            aria-label="Upgrade bookshelf"
-            style={sceneHitboxStyle(1190,275,235,355)}
+            aria-label="Upgrade shelf"
+            style={sceneHitboxStyle(80,220,380,420)}
             onMouseEnter={()=>onObjectHover("shelf")}
             onClick={(e)=>{e.stopPropagation();onShelfClick(e);}}
           />
+          {/* C. DEVELOPER — seated at computer desk */}
           <button
             className="scene-hitbox"
             data-interactive="developer"
             aria-label="Developer"
-            style={sceneHitboxStyle(850,430,180,290)}
+            style={sceneHitboxStyle(870,470,210,280)}
             onMouseEnter={()=>onObjectHover("char")}
             onClick={(e)=>e.stopPropagation()}
           />
+          {/* D. DESK SURFACE — desk top area */}
           <button
             className="scene-hitbox"
             data-interactive="desk"
             aria-label="Desk"
-            style={sceneHitboxStyle(700,465,360,210)}
+            style={sceneHitboxStyle(830,460,380,200)}
             onMouseEnter={()=>onObjectHover("desk")}
             onClick={(e)=>e.stopPropagation()}
           />
-          {upgrades.has("coffeemaker")&&(
-            <button
-              className="scene-hitbox"
-              data-interactive="coffee"
-              aria-label="Coffee station"
-              style={sceneHitboxStyle(1200,535,155,210)}
-              onMouseEnter={()=>onObjectHover("shelf")}
-              onClick={(e)=>e.stopPropagation()}
-            />
-          )}
+          {/* E. COVERED CAR — locked future area (center scene) */}
+          <button
+            className="scene-hitbox"
+            data-interactive="car"
+            aria-label="Covered car – locked"
+            style={sceneHitboxStyle(500,520,320,280)}
+            onMouseEnter={()=>onObjectHover(null)}
+            onClick={(e)=>e.stopPropagation()}
+            title="Locked for future upgrade"
+          />
 
           <svg viewBox={`0 0 ${PNG_SCENE_WIDTH} ${PNG_SCENE_HEIGHT}`} className="absolute inset-0 h-full w-full pointer-events-none" preserveAspectRatio="none" style={{zIndex:20}}>
             {tutorialStep==="start"&&(
