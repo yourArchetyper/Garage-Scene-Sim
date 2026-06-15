@@ -1,0 +1,405 @@
+You are working inside the existing Replit project:
+
+Garage-Scene-Sim
+
+Goal:
+Fix the current Level 1 garage scene staging and visual coherence.
+
+This is a strict visual/game-feel cleanup pass only.
+
+Do not add new gameplay systems.
+Do not add save/load.
+Do not add employees.
+Do not add offices.
+Do not add publishers.
+Do not add custom engines.
+Do not add research trees.
+Do not add new contracts.
+Do not add new market systems.
+Do not add new tutorial systems.
+
+Current visible problems:
+
+1. A large purple translucent upgrade overlay is still visible on the left shelf area.
+2. The “Upgrades” hover/label treatment is too aggressive and looks like debug UI.
+3. The developer sprite does not convincingly face or work at the CRT computer.
+4. The computer should feel alive/active, but without large tutorial overlays.
+5. There should be no big in-scene tutorial bubbles. The command/click menu and top-right objective pill are enough.
+
+Main tasks:
+
+* Remove all persistent purple upgrade overlay visuals.
+* Remove all large local tutorial hint bubbles.
+* Keep only subtle hover labels and the top-right objective pill.
+* Improve the developer placement/orientation.
+* If the current developer sprite cannot be made to face the computer naturally, hide it temporarily rather than forcing a bad mismatch.
+* Keep all gameplay logic intact.
+
+==================================================
+
+1. REMOVE PURPLE UPGRADE OVERLAY COMPLETELY
+   ==================================================
+
+Search the codebase for anything related to:
+
+* shelf-upgrade-pulse
+* upgrade pulse
+* upgrade highlight
+* purple overlay
+* upgrade overlay
+* shelf glow
+* tutorialStep === "upgrade"
+* DEBUG_HITBOXES
+* hitbox debug
+* upgrade-area
+* upgrades label overlay
+
+Remove or disable any visible persistent purple/pink wash over the shelf/upgrade area.
+
+Normal play must show:
+
+* no purple translucent rectangle
+* no purple spotlight
+* no cone-shaped highlight
+* no colored target zone
+* no visible hitbox fill
+
+If DEBUG_HITBOXES exists:
+
+* keep it false by default
+* any hitbox visualization may only appear when DEBUG_HITBOXES === true
+
+The upgrade area should only show a small hover label when hovered.
+
+Allowed upgrade affordance:
+
+* cursor pointer
+* small label: “Upgrades”
+* very subtle outline/glow only on hover
+
+Not allowed:
+
+* permanent purple overlay
+* large tinted blocks
+* debug-looking colored regions
+* glowing spotlight cones
+
+==================================================
+2. REMOVE LARGE LOCAL TUTORIAL BUBBLES
+======================================
+
+Remove all large in-scene tutorial bubbles such as:
+
+* “Click the computer”
+* “Click the computer to start your first game”
+* “Try the computer”
+* “Click the shelf”
+* any large orange pill/arrow inside the room
+
+Keep only:
+
+* top-right objective pill: “Start your first game”
+* hover label on computer: “Computer”
+* hover label on upgrades: “Upgrades”
+* global/click command menu
+
+The scene should guide the player through object affordance and contextual menus, not through large instructional overlays.
+
+Important:
+Do not remove the top-right objective pill.
+Do not remove the global studio menu.
+Do not remove hover labels.
+
+==================================================
+3. KEEP INTERACTION DISCOVERABILITY SUBTLE
+==========================================
+
+Interactive objects must still be discoverable.
+
+Keep invisible hitboxes for:
+
+* computer
+* upgrades/shelf
+* floor/global menu
+* developer if still present
+
+For each hitbox:
+
+* pointer cursor on hover
+* small hover label
+* subtle hover outline/glow
+* e.stopPropagation() so object clicks do not open the floor menu
+* aria-label for accessibility
+
+Computer hover label:
+“Computer”
+
+Upgrade hover label:
+“Upgrades”
+
+No persistent overlays.
+
+==================================================
+4. FIX DEVELOPER STAGING
+========================
+
+Current problem:
+The developer sprite is visible, but it does not convincingly look like he is sitting at and working on the CRT computer.
+
+The current sprite is too front-facing. CSS flipping alone is not a professional fix.
+
+Try these options in order:
+
+A. Reposition and scale the existing sprite better.
+
+Suggested starting point:
+
+.developer-anchor {
+position: absolute;
+left: 72.5%;
+top: 49%;
+width: 10.5%;
+transform: translate(-50%, -18%);
+z-index: 12;
+pointer-events: none;
+}
+
+Tune visually.
+
+Target:
+
+* developer appears seated near the right-side CRT computer desk
+* developer is closer to the keyboard/desk
+* developer does not float in the middle of the room
+* developer does not block the monitor
+* developer does not overlap the desk unnaturally
+
+B. Remove CSS flipping if it makes lighting/perspective worse.
+
+Search for:
+
+* scaleX(-1)
+* flipped developer sprite
+* transform flip
+
+Do not rely on scaleX(-1) as the primary fix if it looks wrong.
+
+C. Use the best available state sprite.
+
+If there are assets like:
+
+* developer_pc_idle.png
+* developer_pc_typing_1.png
+* developer_pc_typing_2.png
+* developer_typing_1.png
+* developer_typing_2.png
+* developer_idle.png
+* developer_tired.png
+* developer_worried.png
+* developer_celebrate.png
+
+Use the sprite that best implies working at a computer.
+
+D. If no current sprite fits naturally:
+Hide the developer sprite temporarily.
+
+This is acceptable.
+
+Reason:
+A cohesive room without a badly placed character is better than a detailed scene with a mismatched pasted-on character.
+
+If hidden:
+
+* keep developer-related actions accessible through the computer/desk hitbox
+* do not remove gameplay state
+* report that a dedicated “side-facing developer typing at CRT desk” sprite is needed
+
+==================================================
+5. REQUIRED FUTURE SPRITE NOTE
+==============================
+
+Add a short code comment near the developer asset mapping:
+
+// TODO: Replace with a dedicated side-facing "developer at CRT desk" sprite.
+// The current front-facing seated sprite is temporary and may be hidden if it breaks scene perspective.
+
+Do not generate new art inside this pass.
+Only use existing assets.
+
+==================================================
+6. MAKE COMPUTER FEEL ACTIVE WITHOUT BIG OVERLAYS
+=================================================
+
+The computer should be the focal point, but not through giant tutorial graphics.
+
+Keep/improve subtle CRT effects:
+
+* monitor glow
+* CRT scanline
+* idle screen breathing
+* working flicker during active development
+* red/orange warning flicker for high bugs/crunch
+* green pulse when release-ready
+
+These effects must be localized to the CRT monitor area only.
+
+Do not add:
+
+* giant glow ring
+* large colored ellipse
+* giant arrow
+* orange tutorial bubble
+* large speech bubble
+
+Computer should feel alive because the monitor is active, not because the UI screams.
+
+==================================================
+7. FIX MONITOR OVERLAY POSITION
+===============================
+
+Ensure all monitor effects sit exactly on the CRT screen area in the Level 1 background.
+
+Suggested starting values:
+
+.monitor-glow,
+.crt-scan {
+position: absolute;
+left: 72.5%;
+top: 40.5%;
+width: 5.5%;
+height: 4.2%;
+pointer-events: none;
+z-index: 18;
+}
+
+Tune until it overlays the CRT screen, not the chalkboard or wall.
+
+==================================================
+8. UPDATE BUBBLE ANCHORS IF NEEDED
+==================================
+
+Make sure development bubbles appear near sensible places in the new Level 1 scene.
+
+Suggested percentage anchors:
+
+const bubbleAnchors = {
+design: { x: 70, y: 47 },
+tech: { x: 73, y: 41 },
+bug: { x: 73, y: 40 },
+research: { x: 57, y: 30 },
+hype: { x: 70, y: 35 },
+money: { x: 8, y: 12 },
+fans: { x: 70, y: 50 }
+};
+
+Adjust based on current coordinate system.
+
+Rules:
+
+* Design near desk/developer
+* Tech near CRT monitor
+* Bugs near CRT monitor
+* Research near tool wall/chalkboard/workbench
+* Hype above computer/developer
+* Money near HUD or desk
+* Fans near developer
+
+==================================================
+9. PRESERVE CURRENT GAME SYSTEMS
+================================
+
+Do not break:
+
+* Level 1 base background
+* project creation
+* development tick
+* design/tech/bug/research/hype bubbles
+* release-ready logic
+* review reveal
+* active_on_market sales
+* right-side live sales feed
+* global studio menu
+* upgrades/shop logic
+* contract work
+* market trends
+* playtest mode
+* printSessionSummary()
+* runSmokeTest()
+* TypeScript correctness
+
+This pass should not change scoring, economy, release logic, or sales logic.
+
+==================================================
+10. TYPECHECK
+=============
+
+Run:
+
+pnpm run typecheck
+
+Fix all errors.
+
+No “pre-existing errors” are acceptable.
+
+==================================================
+11. MANUAL QA CHECKLIST
+=======================
+
+After implementation, manually verify:
+
+Fresh reload:
+
+* no purple upgrade overlay is visible
+* no large orange local tutorial bubble is visible
+* top-right objective pill still exists
+* scene looks natural and not debug-highlighted
+
+Interactions:
+
+* hover computer shows only subtle label/glow
+* hover upgrades shows only subtle label/glow
+* click computer opens New Project / project actions
+* click upgrades opens shop
+* click empty floor opens global studio menu
+* object clicks do not accidentally open floor menu
+
+Developer:
+
+* developer is better positioned near the CRT desk
+* developer does not look pasted into the middle of the room
+* if developer cannot fit, he is hidden and this is reported
+* developer state changes do not jump position
+
+Computer:
+
+* monitor glow is localized to CRT screen
+* CRT scanline/flicker is subtle
+* active development makes computer feel alive
+* release-ready state still reads clearly
+
+Core loop:
+
+* start default project
+* development bubbles appear
+* release-ready works
+* release flow works
+* live sales works
+* buy upgrade works
+* End Playtest works
+* printSessionSummary() works
+* runSmokeTest() works
+
+==================================================
+12. DELIVERABLE REPORT
+======================
+
+When done, report:
+
+* removed overlay classes/components
+* whether purple overlay is fully gone
+* whether orange local tutorial bubble is fully gone
+* final developer anchor values
+* whether developer sprite was kept, hidden, repositioned, or flipped
+* final monitor overlay position values
+* typecheck result
+* manual QA result

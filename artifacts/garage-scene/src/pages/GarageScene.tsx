@@ -1585,9 +1585,11 @@ export default function GarageScene() {
     : "idle";
   const developerSprite = getDeveloperSprite(developerSpriteState, typingFrame);
   // Developer anchor: fixed percentage position so all sprite states stay stable
-  const devLeft  = developerSpriteState === "celebrating" ? 67 : 69;
-  const devTop   = developerSpriteState === "celebrating" ? 47 : 49;
-  const devWidth = developerSpriteState === "celebrating" ? 16 : 14;
+  // TODO: Replace with a dedicated side-facing "developer at CRT desk" sprite.
+  // The current front-facing seated sprite is temporary and may be hidden if it breaks scene perspective.
+  const devLeft  = developerSpriteState === "celebrating" ? 70   : 72.5;
+  const devTop   = developerSpriteState === "celebrating" ? 47   : 49;
+  const devWidth = developerSpriteState === "celebrating" ? 12.5 : 10.5;
   // Hitbox helper — args are percentages of scene wrapper
   const sceneHitboxStyle = (leftPct:number,topPct:number,widthPct:number,heightPct:number,z=12): CSSProperties => ({
     left:`${leftPct}%`,
@@ -1795,10 +1797,10 @@ export default function GarageScene() {
               className={monitorGlowCssClass}
               style={{
                 position:"absolute",
-                left:"70%",
-                top:"38%",
-                width:"7%",
-                height:"5%",
+                left:"72.5%",
+                top:"40.5%",
+                width:"5.5%",
+                height:"4.2%",
                 borderRadius:"40%",
                 background:monitorGlowColor,
                 filter:"blur(16px)",
@@ -1812,10 +1814,10 @@ export default function GarageScene() {
           {/* ── CRT SCANLINE sweep (thin bright line scrolling over monitor) ── */}
           <div style={{
             position:"absolute",
-            left:"67%",
-            top:"34%",
-            width:"9%",
-            height:"10%",
+            left:"72.5%",
+            top:"40.5%",
+            width:"5.5%",
+            height:"4.2%",
             overflow:"hidden",
             pointerEvents:"none",
             zIndex:7,
@@ -1900,7 +1902,7 @@ export default function GarageScene() {
               src={developerSprite}
               alt="Developer"
               draggable={false}
-              style={{width:"100%",height:"auto",display:"block",transform:"scaleX(-1)"}}
+              style={{width:"100%",height:"auto",display:"block"}}
               initial={{opacity:0.88}}
               animate={{
                 opacity:1,
@@ -2017,45 +2019,27 @@ export default function GarageScene() {
               ))}
             </AnimatePresence>
             {hoveredObject==="computer"&&(
-              <>
-                <ellipse cx={computerPos.x} cy={computerPos.y+45} rx={145} ry={58} fill="#f59e0b" opacity={tutorialStep==="start"?0.22:0.14}/>
-                <rect x={computerPos.x-148} y={computerPos.y-18} width={296} height={160} rx={22} fill="#f59e0b" opacity={0.04} stroke="#f59e0b" strokeWidth="2" strokeOpacity="0.30"/>
-              </>
+              <rect x={computerPos.x-110} y={computerPos.y-10} width={220} height={130} rx={14} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeOpacity="0.35"/>
             )}
             {hoveredObject==="shelf"&&(
-              <>
-                <ellipse cx={bookshelfPos.x+10} cy={bookshelfPos.y+155} rx={108} ry={168} fill="#a855f7" opacity={0.13}/>
-                <rect x={bookshelfPos.x-118} y={bookshelfPos.y-30} width={236} height={360} rx={22} fill="#a855f7" opacity={0.04} stroke="#a855f7" strokeWidth="2" strokeOpacity="0.30"/>
-              </>
-            )}
-            {hoveredObject==="char"&&(
-              <ellipse cx={charHead.x} cy={charHead.y+130} rx={80} ry={60} fill="#3b82f6" opacity={0.11}/>
-            )}
-            {hoveredObject==="desk"&&(
-              <ellipse cx={deskTop.x} cy={deskTop.y+70} rx={185} ry={70} fill="#d97706" opacity={0.08}/>
+              <rect x={bookshelfPos.x-80} y={bookshelfPos.y-20} width={160} height={260} rx={14} fill="none" stroke="#a855f7" strokeWidth="1.5" strokeOpacity="0.35"/>
             )}
             {hoveredObject==="computer"&&(
               <g className="hover-label">
-                <rect x={computerPos.x-74} y={computerPos.y-148} width={148} height={34} rx={17} fill="#111827" opacity={0.90}/>
-                <text x={computerPos.x} y={computerPos.y-124} textAnchor="middle" fontSize="18" fontWeight="bold" fill="white">🖥 Computer</text>
+                <rect x={computerPos.x-46} y={computerPos.y-100} width={92} height={22} rx={11} fill="#111827" opacity={0.82}/>
+                <text x={computerPos.x} y={computerPos.y-84} textAnchor="middle" fontSize="12" fontWeight="600" fill="white">Computer</text>
               </g>
             )}
             {hoveredObject==="shelf"&&(
               <g className="hover-label">
-                <rect x={bookshelfPos.x-76} y={bookshelfPos.y-56} width={152} height={34} rx={17} fill="#111827" opacity={0.90}/>
-                <text x={bookshelfPos.x} y={bookshelfPos.y-32} textAnchor="middle" fontSize="18" fontWeight="bold" fill="white">📚 Upgrades</text>
+                <rect x={bookshelfPos.x-44} y={bookshelfPos.y-46} width={88} height={22} rx={11} fill="#111827" opacity={0.82}/>
+                <text x={bookshelfPos.x} y={bookshelfPos.y-30} textAnchor="middle" fontSize="12" fontWeight="600" fill="white">Upgrades</text>
               </g>
             )}
             {hoveredObject==="char"&&(
               <g className="hover-label">
-                <rect x={charHead.x-72} y={charHead.y-82} width={144} height={32} rx={16} fill="#111827" opacity={0.84}/>
-                <text x={charHead.x} y={charHead.y-60} textAnchor="middle" fontSize="17" fontWeight="bold" fill="white">Developer</text>
-              </g>
-            )}
-            {hoveredObject==="desk"&&(
-              <g className="hover-label">
-                <rect x={deskTop.x-44} y={deskTop.y-36} width={88} height={32} rx={16} fill="#111827" opacity={0.84}/>
-                <text x={deskTop.x} y={deskTop.y-14} textAnchor="middle" fontSize="17" fontWeight="bold" fill="white">Desk</text>
+                <rect x={charHead.x-44} y={charHead.y-74} width={88} height={22} rx={11} fill="#111827" opacity={0.82}/>
+                <text x={charHead.x} y={charHead.y-58} textAnchor="middle" fontSize="12" fontWeight="600" fill="white">Developer</text>
               </g>
             )}
             <AnimatePresence>
