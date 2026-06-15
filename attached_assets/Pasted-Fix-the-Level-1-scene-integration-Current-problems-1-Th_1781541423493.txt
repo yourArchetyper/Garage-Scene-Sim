@@ -1,0 +1,438 @@
+Fix the Level 1 scene integration.
+
+Current problems:
+
+1. The Level 1 background image has a black rectangular background around the isometric room.
+2. The developer sprite is not positioned at the computer desk.
+3. Some hitboxes/overlays are still aligned to the old scene coordinates.
+
+Goal:
+Make the Level 1 scene look coherent:
+
+* remove the black background around the room
+* position the developer at the right-side computer desk
+* align computer/shelf/floor hitboxes to the new level image
+* keep all existing gameplay logic intact
+
+Do not add new gameplay systems.
+
+Do not add:
+
+* save/load
+* employees
+* offices
+* publishers
+* custom engines
+* research trees
+* new contracts
+* new market systems
+
+This is a visual alignment and asset cleanup pass only.
+
+1. Fix the black background
+
+The black background is part of the PNG asset, not a CSS background.
+
+Create a cleaned transparent version of the Level 1 image.
+
+Input:
+assets/level1_garage_base.png
+
+Output:
+assets/level1_garage_base_clean.png
+
+Remove the black/near-black background outside the room and preserve the room itself.
+
+Implementation options:
+
+* If the project has image tooling, use it.
+* Otherwise create a small Node or Python helper script to convert near-black pixels to alpha.
+* Do not manually hide the black area with CSS.
+* Do not use mix-blend-mode as a fake fix.
+
+Background removal rule:
+
+* pixels with very low RGB values outside the room should become transparent
+* keep dark interior shadows/details intact as much as possible
+* use a conservative threshold, for example RGB < 12 or RGB < 18
+* if needed, use flood-fill from image borders so only connected black background is removed, not dark details inside the room
+
+Preferred algorithm:
+
+* load image
+* flood-fill from all border pixels that are near-black
+* set those connected pixels to alpha 0
+* save as PNG with transparency
+
+Use the cleaned file in the scene:
+level1_garage_base_clean.png
+
+2. Update scene image styling
+
+Render the cleaned Level 1 image as:
+
+<img
+className="level1-base"
+src={levelAssets.level1BaseClean}
+alt=""
+/>
+
+CSS:
+.level1-base {
+position: absolute;
+inset: 0;
+width: 100%;
+height: 100%;
+object-fit: contain;
+pointer-events: none;
+user-select: none;
+}
+
+The scene wrapper should not show a black rectangle.
+
+If transparent PNG is working, the beige app background should show around the isometric room.
+
+3. Use a stable coordinate system
+
+Create a scene wrapper with fixed internal coordinates, for example:
+
+.level-scene {
+position: relative;
+width: 1100px;
+height: 800px;
+max-width: 92vw;
+max-height: 86vh;
+aspect-ratio: 11 / 8;
+}
+
+All hitboxes, player sprite, bubbles, tooltips, monitor glow, and badges should be positioned relative to this wrapper.
+
+Do not use old coordinates from the previous SVG/PNG-composed scene.
+
+4. Move developer sprite to the computer desk
+
+The developer must sit at the right-side computer desk, not in the middle of the room.
+
+Current issue:
+The developer sprite is floating near the covered car / central floor area.
+
+Fix:
+Position the developer near the right-side CRT computer desk.
+
+Use percentage-based positioning first, then tune visually.
+
+Suggested starting CSS:
+
+.developer-sprite {
+position: absolute;
+left: 69%;
+top: 49%;
+width: 14%;
+transform: translate(-50%, -20%);
+z-index: 12;
+pointer-events: none;
+}
+
+If the sprite appears too large:
+
+* reduce width to 11–13%
+
+If too small:
+
+* increase width to 15–16%
+
+If the chair/body does not align:
+
+* adjust left/top by small increments
+
+Target:
+
+* developer should appear seated at the computer desk
+* hands/body should visually face the CRT computer
+* sprite should not overlap the covered car
+* sprite should not float in open floor
+
+If the current developer PNG perspective still does not fit:
+
+* temporarily hide the developer sprite
+* keep developer interactions mapped to the computer/desk hitbox
+* report that a custom seated-at-right-desk sprite is needed
+
+Coherence is more important than forcing a mismatched sprite.
+
+5. Update developer state mapping
+
+Keep existing developer state logic, but all state sprites should use the same position and size.
+
+States:
+
+* idle
+* typing
+* tired
+* worried
+* thinking
+* resting
+* celebrating
+
+All should use the same anchor:
+left: 69%;
+top: 49%;
+width: 14%;
+
+Typing frames should alternate while project is active.
+
+Do not allow different state sprites to jump around because of different dimensions.
+Use a fixed wrapper:
+
+<div className="developer-anchor">
+  <img className="developer-sprite" src={currentDeveloperSprite} />
+</div>
+
+CSS:
+.developer-anchor {
+position: absolute;
+left: 69%;
+top: 49%;
+width: 14%;
+transform: translate(-50%, -20%);
+z-index: 12;
+pointer-events: none;
+}
+
+.developer-anchor img {
+width: 100%;
+height: auto;
+display: block;
+}
+
+6. Align hitboxes to the new Level 1 image
+
+Rebuild hitboxes relative to the new background.
+
+Computer hitbox:
+Target right-side computer desk / CRT monitor.
+
+Suggested:
+.hitbox-computer {
+left: 71%;
+top: 39%;
+width: 18%;
+height: 19%;
+}
+
+Shelf / upgrade hitbox:
+Target left shelving / storage area.
+
+Suggested:
+.hitbox-upgrades {
+left: 10%;
+top: 29%;
+width: 20%;
+height: 34%;
+}
+
+Workbench / research hitbox:
+Target back workbench / tool wall.
+
+Suggested:
+.hitbox-workbench {
+left: 43%;
+top: 24%;
+width: 28%;
+height: 25%;
+}
+
+Covered car hitbox:
+Optional locked future area.
+
+Suggested:
+.hitbox-car {
+left: 25%;
+top: 52%;
+width: 35%;
+height: 26%;
+}
+
+Floor/global menu hitbox:
+Do not create one giant hitbox above everything.
+Instead, keep background click handler on scene wrapper:
+
+* if click target is not data-interactive
+* open global menu
+
+All interactive hitboxes must:
+
+* have data-interactive
+* call e.stopPropagation()
+* have aria-label
+* be visually transparent
+* show hover labels/glow through separate overlay if needed
+
+7. Reposition tutorial hint
+
+Move the first-time computer hint to the right-side computer desk.
+
+Current hint points too much toward the middle/backboard area.
+
+Suggested:
+.computer-hint {
+left: 73%;
+top: 35%;
+transform: translate(-50%, -100%);
+}
+
+Text:
+“Click the computer”
+
+Do not show:
+“Click the computer to start your first game.” as a huge pill across the scene.
+
+Keep:
+
+* top-right objective pill: “Start your first game”
+* small local hint near the computer: “Click the computer”
+
+After first computer click:
+
+* hide local hint permanently
+
+8. Reposition monitor glow
+
+Move monitor glow overlay to the right-side CRT computer.
+
+Suggested:
+.monitor-glow {
+left: 73%;
+top: 40%;
+width: 7%;
+height: 5%;
+}
+
+Tune until the glow sits on the CRT screen.
+
+States:
+
+* first load: amber pulse
+* developing: blue/green flicker
+* high bugs/crunch: red flicker
+* release ready: green pulse
+
+9. Reposition bubbles
+
+Update bubble anchors:
+
+const bubbleAnchors = {
+design: { x: 70, y: 45 },
+tech: { x: 74, y: 40 },
+bug: { x: 74, y: 39 },
+research: { x: 55, y: 30 },
+hype: { x: 70, y: 34 },
+money: { x: 8, y: 12 },
+fans: { x: 68, y: 48 }
+};
+
+Coordinates are percentages of scene wrapper.
+
+Bubbles should spawn near the relevant visual object:
+
+* design near desk/developer
+* tech near CRT monitor
+* bug near CRT monitor
+* research near back workbench/chalkboard
+* hype above computer/developer
+* money near HUD or desk
+* fans near developer
+
+10. Remove old standalone scene asset layers
+
+Since Level 1 is now one complete background, remove/hide old layers:
+
+* old separate bookshelf image
+* old coffee station image
+* old desk image
+* old storage image
+* old poster image
+* old plant image
+* old rug image
+* old SVG room/furniture
+
+Keep only:
+
+* level1_garage_base_clean.png
+* optional developer sprite layer
+* overlays
+* hitboxes
+* UI
+
+11. Preserve game systems
+
+Do not break:
+
+* project creation
+* development tick
+* review reveal
+* active_on_market sales
+* live sales panel
+* global studio menu
+* contracts
+* upgrades
+* market trends
+* playtest mode
+* printSessionSummary()
+* runSmokeTest()
+* TypeScript correctness
+
+12. Add debug alignment mode
+
+Add optional constant:
+
+const DEBUG_HITBOXES = false;
+
+When true:
+
+* show hitbox outlines in translucent colors
+* show labels: Computer, Upgrades, Workbench, Car
+* useful for tuning positions
+
+When false:
+
+* hitboxes invisible
+
+Do not expose this in normal UI.
+
+13. QA
+
+Run:
+pnpm run typecheck
+
+Manual QA:
+
+* black rectangle around level is gone
+* transparent area shows app background
+* developer is positioned at computer desk
+* computer click opens New Project
+* clicking empty floor opens global menu
+* clicking shelf/upgrades opens shop
+* tutorial hint points to computer, not random wall area
+* monitor glow sits on CRT screen
+* bubbles spawn from correct positions
+* release flow still works
+* live sales still works
+* playtest summary still works
+* printSessionSummary() does not crash
+* runSmokeTest() does not crash
+
+14. Deliverable
+
+Return updated code.
+
+Also report:
+
+* how black background was removed
+* cleaned asset filename
+* final developer position values
+* final computer hitbox values
+* final upgrade hitbox values
+* whether developer sprite was kept or hidden
+* typecheck result
+* manual QA result

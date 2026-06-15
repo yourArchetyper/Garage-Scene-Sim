@@ -8,12 +8,10 @@ import {
   type ActiveMarketGame,
 } from "../simulation/market";
 import {
-  developerCelebrateLayer,
-  developerLayerBase,
   getDeveloperSprite,
+  levelAssets,
   PNG_SCENE_HEIGHT,
   PNG_SCENE_WIDTH,
-  pngSceneLayers,
   type DeveloperSpriteState,
 } from "../sceneAssets";
 
@@ -27,6 +25,7 @@ declare global {
 }
 
 const PLAYTEST_MODE = true;
+const DEBUG_HITBOXES = false;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: ANALYTICS
@@ -565,12 +564,13 @@ export default function GarageScene() {
   projectRef.current    = project;
   currentTrendRef.current = currentTrend;
 
-  // ── ISO anchors (1448 × 1086 coordinate space, level1.png) ──
-  const charHead     = {x:960,y:560};
-  const monitorPos   = {x:1010,y:490};
-  const bookshelfPos = {x:300,y:460};
-  const deskTop      = {x:1020,y:575};
-  const computerPos  = {x:1010,y:490};
+  // ── ISO anchors (1100 × 800 coordinate space, level1_garage_base_clean.png) ──
+  // percentages from spec × scene dims: computer@73%,44% shelf@15%,43% char@69%,46%
+  const charHead     = {x:759, y:368};
+  const monitorPos   = {x:814, y:328};
+  const bookshelfPos = {x:165, y:344};
+  const deskTop      = {x:803, y:376};
+  const computerPos  = {x:803, y:352};
 
   // ── Bubble spawner ──
   const spawnBubble = useCallback((text:string,color:string,svgX:number,svgY:number)=>{
@@ -1583,20 +1583,19 @@ export default function GarageScene() {
     : showNewGame||showShop||studioMenu
     ? "thinking"
     : "idle";
-  const developerLayer = developerSpriteState==="celebrating" ? developerCelebrateLayer : developerLayerBase;
   const developerSprite = getDeveloperSprite(developerSpriteState, typingFrame);
-  const sceneLayerStyle = (x:number,y:number,width:number,z:number): CSSProperties => ({
-    left:`${(x/PNG_SCENE_WIDTH)*100}%`,
-    top:`${(y/PNG_SCENE_HEIGHT)*100}%`,
-    width:`${(width/PNG_SCENE_WIDTH)*100}%`,
+  // Developer anchor: fixed percentage position so all sprite states stay stable
+  const devLeft  = developerSpriteState === "celebrating" ? 67 : 69;
+  const devTop   = developerSpriteState === "celebrating" ? 47 : 49;
+  const devWidth = developerSpriteState === "celebrating" ? 16 : 14;
+  // Hitbox helper — args are percentages of scene wrapper
+  const sceneHitboxStyle = (leftPct:number,topPct:number,widthPct:number,heightPct:number,z=12): CSSProperties => ({
+    left:`${leftPct}%`,
+    top:`${topPct}%`,
+    width:`${widthPct}%`,
+    height:`${heightPct}%`,
     zIndex:z,
-  });
-  const sceneHitboxStyle = (x:number,y:number,width:number,height:number,z=12): CSSProperties => ({
-    left:`${(x/PNG_SCENE_WIDTH)*100}%`,
-    top:`${(y/PNG_SCENE_HEIGHT)*100}%`,
-    width:`${(width/PNG_SCENE_WIDTH)*100}%`,
-    height:`${(height/PNG_SCENE_HEIGHT)*100}%`,
-    zIndex:z,
+    ...(DEBUG_HITBOXES ? {outline:"2px dashed rgba(255,100,0,0.7)",background:"rgba(255,100,0,0.08)"} : {}),
   });
 
   // Active upgrade bonuses label
@@ -1612,7 +1611,7 @@ export default function GarageScene() {
 
   // ── Hint map ──
   const hintMap: Record<TutorialStep,string|null> = {
-    start:"Click the computer to start your first game.",
+    start:"Click the computer",
     pick:"Pick a topic, genre, and platform.",
     develop:"Time is moving. Click the computer to guide development.",
     release:"Release your game from the computer panel.",
@@ -1752,10 +1751,19 @@ export default function GarageScene() {
                                position:absolute; border-radius:14px; border:2px solid rgba(168,85,247,0.25);
                                pointer-events:none; }
         .poster-wiggle    { animation: paperWiggle 5.5s ease-in-out infinite; transform-origin: bottom center; }
-        .garage-png-scene { filter: drop-shadow(0 26px 28px rgba(96, 64, 24, .20)); }
+        .garage-png-scene { filter: drop-shadow(0 20px 24px rgba(30, 20, 8, .18)); }
         .scene-layer  { position:absolute; height:auto; pointer-events:none; user-select:none; -webkit-user-drag:none; }
         .scene-hitbox { position:absolute; appearance:none; border:0; padding:0; margin:0; background:transparent; cursor:pointer; }
         .scene-hitbox:focus-visible { outline:2px solid #f59e0b; outline-offset:3px; border-radius:12px; }
+        .level1-base {
+          position:absolute; inset:0; width:100%; height:100%;
+          object-fit:contain; pointer-events:none; user-select:none; display:block;
+        }
+        .developer-anchor {
+          position:absolute; transform:translate(-50%,-20%);
+          z-index:12; pointer-events:none;
+        }
+        .developer-anchor img { width:100%; height:auto; display:block; }
         @media (prefers-reduced-motion: reduce) {
           .dust-particle, .steam-wisp, .lamp-glow-div, .poster-wiggle,
           .monitor-breath, .monitor-flicker, .monitor-release, .monitor-bug,
@@ -1767,34 +1775,30 @@ export default function GarageScene() {
       <div className="absolute inset-0 flex items-center justify-center pt-10 pointer-events-none">
         <div
           className="garage-png-scene relative pointer-events-auto"
-          style={{width:"min(90vw, calc(88vh * 4 / 3))",aspectRatio:"4 / 3"}}
+          style={{width:"min(1100px, min(92vw, calc(86vh * 11 / 8)))",aspectRatio:"11 / 8"}}
           onMouseLeave={()=>onObjectHover(null)}
         >
-          {/* ── LEVEL 1 SINGLE BASE IMAGE ── */}
-          {pngSceneLayers.map(layer=>(
-            <img
-              key={layer.id}
-              className="scene-layer"
-              src={layer.asset}
-              alt={layer.alt}
-              draggable={false}
-              style={sceneLayerStyle(layer.x,layer.y,layer.width,layer.z)}
-            />
-          ))}
+          {/* ── LEVEL 1 BASE IMAGE (transparent background, clean) ── */}
+          <img
+            className="level1-base"
+            src={levelAssets.level1BaseClean}
+            alt=""
+            draggable={false}
+          />
 
-          {/* ── MONITOR GLOW OVERLAY (CRT screen, right-side desk) ── */}
+          {/* ── MONITOR GLOW (CRT screen, right-side desk ≈73%,40%) ── */}
           {monitorGlowColor&&(
             <div
               className={monitorGlowCssClass}
               style={{
                 position:"absolute",
-                left:`${(890/1448)*100}%`,
-                top:`${(360/1086)*100}%`,
-                width:`${(210/1448)*100}%`,
-                height:`${(130/1086)*100}%`,
+                left:"70%",
+                top:"38%",
+                width:"7%",
+                height:"5%",
                 borderRadius:"40%",
                 background:monitorGlowColor,
-                filter:"blur(18px)",
+                filter:"blur(16px)",
                 zIndex:6,
                 pointerEvents:"none",
                 mixBlendMode:"screen",
@@ -1802,36 +1806,36 @@ export default function GarageScene() {
             />
           )}
 
-          {/* ── LAMP WARM GLOW (desk lamp, right side) ── */}
+          {/* ── LAMP WARM GLOW (desk lamp, right side ≈68%,32%) ── */}
           <div className="lamp-glow-div" style={{
             position:"absolute",
-            left:`${(900/1448)*100}%`,
-            top:`${(290/1086)*100}%`,
-            width:`${(240/1448)*100}%`,
-            height:`${(220/1086)*100}%`,
-            background:"radial-gradient(ellipse at 52% 18%, rgba(255,215,90,0.28) 0%, rgba(255,190,60,0.10) 38%, transparent 68%)",
+            left:"65%",
+            top:"30%",
+            width:"22%",
+            height:"22%",
+            background:"radial-gradient(ellipse at 52% 18%, rgba(255,215,90,0.26) 0%, rgba(255,190,60,0.09) 38%, transparent 68%)",
             pointerEvents:"none",
             zIndex:3,
           }}/>
 
           {/* ── DUST MOTES (lamp / monitor area, right side) ── */}
           {([
-            {x:932,y:368,s:2,dx:4,dy:-52,dur:4.2,delay:0},
-            {x:968,y:335,s:1,dx:-3,dy:-48,dur:3.8,delay:0.7},
-            {x:1006,y:378,s:2,dx:7,dy:-58,dur:4.6,delay:1.5},
-            {x:948,y:398,s:1,dx:-5,dy:-45,dur:3.5,delay:2.2},
-            {x:990,y:350,s:2,dx:3,dy:-62,dur:5.0,delay:0.4},
-            {x:935,y:318,s:1,dx:6,dy:-50,dur:4.1,delay:3.0},
-            {x:975,y:340,s:2,dx:-4,dy:-55,dur:4.8,delay:1.1},
-            {x:1018,y:370,s:1,dx:5,dy:-44,dur:3.6,delay:2.8},
-            {x:955,y:390,s:2,dx:-2,dy:-60,dur:4.4,delay:0.9},
-            {x:997,y:325,s:1,dx:4,dy:-50,dur:3.9,delay:3.5},
-            {x:1038,y:360,s:2,dx:-6,dy:-48,dur:4.7,delay:1.8},
-            {x:925,y:348,s:1,dx:3,dy:-53,dur:4.3,delay:2.5},
+            {lp:68,tp:37,s:2,dx:4,dy:-52,dur:4.2,delay:0},
+            {lp:71,tp:33,s:1,dx:-3,dy:-48,dur:3.8,delay:0.7},
+            {lp:74,tp:38,s:2,dx:7,dy:-58,dur:4.6,delay:1.5},
+            {lp:69,tp:40,s:1,dx:-5,dy:-45,dur:3.5,delay:2.2},
+            {lp:73,tp:35,s:2,dx:3,dy:-62,dur:5.0,delay:0.4},
+            {lp:68,tp:30,s:1,dx:6,dy:-50,dur:4.1,delay:3.0},
+            {lp:72,tp:32,s:2,dx:-4,dy:-55,dur:4.8,delay:1.1},
+            {lp:76,tp:37,s:1,dx:5,dy:-44,dur:3.6,delay:2.8},
+            {lp:70,tp:39,s:2,dx:-2,dy:-60,dur:4.4,delay:0.9},
+            {lp:74,tp:31,s:1,dx:4,dy:-50,dur:3.9,delay:3.5},
+            {lp:77,tp:36,s:2,dx:-6,dy:-48,dur:4.7,delay:1.8},
+            {lp:67,tp:34,s:1,dx:3,dy:-53,dur:4.3,delay:2.5},
           ] as const).map((p,i)=>(
             <div key={i} className="dust-particle" style={{
-              left:`${(p.x/1448)*100}%`,
-              top:`${(p.y/1086)*100}%`,
+              left:`${p.lp}%`,
+              top:`${p.tp}%`,
               width:`${p.s}px`,
               height:`${p.s}px`,
               background:`rgba(255,248,210,${0.50+((i%3)*0.10)})`,
@@ -1843,15 +1847,15 @@ export default function GarageScene() {
             }}/>
           ))}
 
-          {/* ── COFFEE STEAM (workbench / shelf area, visible when coffeemaker owned) ── */}
+          {/* ── COFFEE STEAM (workbench/shelf area ≈18%,40%) ── */}
           {upgrades.has("coffeemaker")&&([
-            {x:268,y:430,dur:2.3,delay:0},
-            {x:280,y:427,dur:2.8,delay:1.1},
-            {x:273,y:433,dur:2.5,delay:0.6},
+            {lp:18,tp:40,dur:2.3,delay:0},
+            {lp:19,tp:39,dur:2.8,delay:1.1},
+            {lp:18.5,tp:41,dur:2.5,delay:0.6},
           ] as const).map((w,i)=>(
             <div key={i} className="steam-wisp" style={{
-              left:`${(w.x/1448)*100}%`,
-              top:`${(w.y/1086)*100}%`,
+              left:`${w.lp}%`,
+              top:`${w.tp}%`,
               width:"3px",
               height:"14px",
               background:"rgba(240,240,240,0.40)",
@@ -1862,82 +1866,86 @@ export default function GarageScene() {
             }}/>
           ))}
 
-          {/* ── SHELF / WORKBENCH UPGRADE OBJECTIVE PULSE ── */}
+          {/* ── SHELF / UPGRADE OBJECTIVE PULSE (left shelf ≈10%,29%) ── */}
           {objectiveText==="Buy an upgrade"&&(
             <div className="shelf-upgrade-pulse" style={{
-              left:`${(80/1448)*100}%`,
-              top:`${(220/1086)*100}%`,
-              width:`${(390/1448)*100}%`,
-              height:`${(410/1086)*100}%`,
+              left:"10%",
+              top:"29%",
+              width:"20%",
+              height:"34%",
               zIndex:11,
             }}/>
           )}
 
-          {/* ── DEVELOPER SPRITE (seated at computer desk, right side) ── */}
-          <motion.img
-            key={developerSprite}
-            className="scene-layer"
-            src={developerSprite}
-            alt="Developer"
-            draggable={false}
-            initial={{opacity:0.88}}
-            animate={{
-              opacity:1,
-              y:celebrating?[0,-10,0,-6,0]:working&&developerSpriteState==="working"?[0,-2,0]:[0,-1.5,0],
-            }}
-            transition={{
-              duration:celebrating?0.55:working?0.42:3.2,
-              repeat:Infinity,
-              ease:"easeInOut",
-              repeatType:"mirror",
-            }}
-            style={sceneLayerStyle(developerLayer.x,developerLayer.y,developerLayer.width,developerLayer.z)}
-          />
+          {/* ── DEVELOPER SPRITE — fixed anchor at computer desk (≈69%,49%) ── */}
+          <div
+            className="developer-anchor"
+            style={{left:`${devLeft}%`,top:`${devTop}%`,width:`${devWidth}%`}}
+          >
+            <motion.img
+              key={developerSprite}
+              src={developerSprite}
+              alt="Developer"
+              draggable={false}
+              style={{width:"100%",height:"auto",display:"block"}}
+              initial={{opacity:0.88}}
+              animate={{
+                opacity:1,
+                y:celebrating?[0,-10,0,-6,0]:working&&developerSpriteState==="working"?[0,-2,0]:[0,-1.5,0],
+              }}
+              transition={{
+                duration:celebrating?0.55:working?0.42:3.2,
+                repeat:Infinity,
+                ease:"easeInOut",
+                repeatType:"mirror",
+              }}
+            />
+          </div>
 
           {/* ── INTERACTION HITBOXES ── */}
 
-          {/* A. COMPUTER — right-side CRT desk, primary action */}
+          {/* A. COMPUTER — right-side CRT desk (71%,39% 18×19%) */}
           <button
             className="scene-hitbox"
             data-interactive="computer"
             aria-label="Computer"
-            style={sceneHitboxStyle(840,330,310,270)}
+            style={sceneHitboxStyle(71,39,18,19)}
             onMouseEnter={()=>onObjectHover("computer")}
             onClick={onComputerClick}
           />
-          {/* B. UPGRADES / SHOP — left-wall shelf & workbench area */}
+          {/* B. UPGRADES — left-wall shelf (10%,29% 20×34%) */}
           <button
             className="scene-hitbox"
             data-interactive="shelf"
             aria-label="Upgrade shelf"
-            style={sceneHitboxStyle(80,220,380,420)}
+            style={sceneHitboxStyle(10,29,20,34)}
             onMouseEnter={()=>onObjectHover("shelf")}
             onClick={(e)=>{e.stopPropagation();onShelfClick(e);}}
           />
-          {/* C. DEVELOPER — seated at computer desk */}
+          {/* C. WORKBENCH — back wall workbench / chalkboard (43%,24% 28×25%) */}
+          <button
+            className="scene-hitbox"
+            data-interactive="workbench"
+            aria-label="Workbench"
+            style={sceneHitboxStyle(43,24,28,25)}
+            onMouseEnter={()=>onObjectHover("desk")}
+            onClick={(e)=>e.stopPropagation()}
+          />
+          {/* D. DEVELOPER — at computer desk (65%,44% 20×30%) */}
           <button
             className="scene-hitbox"
             data-interactive="developer"
             aria-label="Developer"
-            style={sceneHitboxStyle(870,470,210,280)}
+            style={sceneHitboxStyle(65,44,20,30)}
             onMouseEnter={()=>onObjectHover("char")}
             onClick={(e)=>e.stopPropagation()}
           />
-          {/* D. DESK SURFACE — desk top area */}
-          <button
-            className="scene-hitbox"
-            data-interactive="desk"
-            aria-label="Desk"
-            style={sceneHitboxStyle(830,460,380,200)}
-            onMouseEnter={()=>onObjectHover("desk")}
-            onClick={(e)=>e.stopPropagation()}
-          />
-          {/* E. COVERED CAR — locked future area (center scene) */}
+          {/* E. COVERED CAR — locked future area (25%,52% 35×26%) */}
           <button
             className="scene-hitbox"
             data-interactive="car"
             aria-label="Covered car – locked"
-            style={sceneHitboxStyle(500,520,320,280)}
+            style={sceneHitboxStyle(25,52,35,26)}
             onMouseEnter={()=>onObjectHover(null)}
             onClick={(e)=>e.stopPropagation()}
             title="Locked for future upgrade"
