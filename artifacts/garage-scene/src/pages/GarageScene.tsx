@@ -1624,6 +1624,26 @@ export default function GarageScene() {
   };
   const currentHint = hintMap[tutorialStep];
 
+  // ── Monitor glow state ──
+  const monitorGlowColor = readyToRelease
+    ? "#22c55e"
+    : !working
+      ? (tutorialStep==="start" ? "#f59e0b" : null)
+      : bugCount>4 ? "#ef4444"
+      : focusMode==="crunch" ? "#ef4444"
+      : focusMode==="tech" ? "#3b82f6"
+      : focusMode==="design" ? "#f59e0b"
+      : "#3b82f6";
+
+  const monitorGlowCssClass = readyToRelease
+    ? "monitor-release"
+    : !working
+      ? (tutorialStep==="start" ? "monitor-breath" : "")
+      : bugCount>4 ? "monitor-bug"
+      : focusMode==="crunch" ? "monitor-bug"
+      : working ? "monitor-flicker"
+      : "";
+
   // ── Objective pill ──
   const objectiveText = (()=>{
     if(phase==="idle"&&history.length===0)                          return "Start your first game";
@@ -1680,21 +1700,34 @@ export default function GarageScene() {
         @keyframes releasePulse { 0%,100%{box-shadow:0 0 0 0 #22c55e55}50%{box-shadow:0 0 0 8px #22c55e00} }
         @keyframes pillFadeIn { from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)} }
         @keyframes hoverLabelIn { from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)} }
+        @keyframes monitorBreath { 0%,100%{opacity:0.10}50%{opacity:0.30} }
+        @keyframes monitorFlicker { 0%{opacity:0.22}20%{opacity:0.08}40%{opacity:0.28}60%{opacity:0.06}80%{opacity:0.25}100%{opacity:0.22} }
+        @keyframes monitorRelease { 0%,100%{opacity:0.14}50%{opacity:0.44} }
+        @keyframes monitorBug { 0%{opacity:0.28}33%{opacity:0.10}66%{opacity:0.32}100%{opacity:0.28} }
+        @keyframes liveDot { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.7)} }
+        @keyframes latestBarPulse { 0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)} }
         .bug-wiggle { animation: bugWiggle 0.4s ease-in-out infinite; display:inline-block; }
         .release-pulse { animation: releasePulse 1.2s ease-in-out infinite; }
         .pill-appear { animation: pillFadeIn 0.3s ease-out both; }
         .hover-label { animation: hoverLabelIn 0.15s ease-out both; }
+        .monitor-breath { animation: monitorBreath 1.8s ease-in-out infinite; }
+        .monitor-flicker { animation: monitorFlicker 0.55s linear infinite; }
+        .monitor-release { animation: monitorRelease 1.0s ease-in-out infinite; }
+        .monitor-bug { animation: monitorBug 0.38s linear infinite; }
+        .live-dot { animation: liveDot 1.1s ease-in-out infinite; }
+        .latest-bar { animation: latestBarPulse 1.1s ease-in-out infinite; }
         .garage-png-scene { filter: drop-shadow(0 26px 28px rgba(96, 64, 24, .20)); }
         .scene-layer { position:absolute; height:auto; pointer-events:none; user-select:none; -webkit-user-drag:none; }
         .scene-hitbox { position:absolute; appearance:none; border:0; padding:0; margin:0; background:transparent; cursor:pointer; }
         .scene-hitbox:focus-visible { outline:2px solid #f59e0b; outline-offset:3px; border-radius:12px; }
+        .hitbox-interactive-shelf:hover ~ .shelf-glow-div { opacity:0.22 !important; }
       `}</style>
 
       {/* ── PNG SCENE ─────────────────────────────────────────────────────── */}
       <div className="absolute inset-0 flex items-center justify-center pt-10 pointer-events-none">
         <div
           className="garage-png-scene relative pointer-events-auto"
-          style={{width:"min(92vw, calc(82vh * 16 / 9), 1120px)",aspectRatio:"16 / 9"}}
+          style={{width:"min(94vw, calc(86vh * 16 / 9))",aspectRatio:"16 / 9"}}
           onMouseLeave={()=>onObjectHover(null)}
         >
           {pngSceneLayers.map(layer=>(
@@ -1716,6 +1749,109 @@ export default function GarageScene() {
               style={sceneLayerStyle(1190,520,170,5)}
             />
           )}
+
+          {/* ── CONTACT SHADOWS ── */}
+          {/* Desk + computer shadow */}
+          <div style={{
+            position:"absolute",
+            left:`${(680/1760)*100}%`,
+            top:`${(610/990)*100}%`,
+            width:`${(400/1760)*100}%`,
+            height:`${(56/990)*100}%`,
+            borderRadius:"50%",
+            background:"rgba(20,8,0,0.17)",
+            filter:"blur(10px)",
+            zIndex:1,
+            pointerEvents:"none",
+          }}/>
+          {/* Developer / chair shadow */}
+          <div style={{
+            position:"absolute",
+            left:`${(870/1760)*100}%`,
+            top:`${(665/990)*100}%`,
+            width:`${(150/1760)*100}%`,
+            height:`${(32/990)*100}%`,
+            borderRadius:"50%",
+            background:"rgba(20,8,0,0.15)",
+            filter:"blur(7px)",
+            zIndex:1,
+            pointerEvents:"none",
+          }}/>
+          {/* Bookshelf shadow */}
+          <div style={{
+            position:"absolute",
+            left:`${(1215/1760)*100}%`,
+            top:`${(615/990)*100}%`,
+            width:`${(190/1760)*100}%`,
+            height:`${(38/990)*100}%`,
+            borderRadius:"50%",
+            background:"rgba(20,8,0,0.13)",
+            filter:"blur(8px)",
+            zIndex:1,
+            pointerEvents:"none",
+          }}/>
+          {/* Storage boxes shadow */}
+          <div style={{
+            position:"absolute",
+            left:`${(488/1760)*100}%`,
+            top:`${(575/990)*100}%`,
+            width:`${(140/1760)*100}%`,
+            height:`${(28/990)*100}%`,
+            borderRadius:"50%",
+            background:"rgba(20,8,0,0.12)",
+            filter:"blur(6px)",
+            zIndex:1,
+            pointerEvents:"none",
+          }}/>
+          {/* Plant shadow */}
+          <div style={{
+            position:"absolute",
+            left:`${(547/1760)*100}%`,
+            top:`${(405/990)*100}%`,
+            width:`${(100/1760)*100}%`,
+            height:`${(20/990)*100}%`,
+            borderRadius:"50%",
+            background:"rgba(20,8,0,0.10)",
+            filter:"blur(5px)",
+            zIndex:1,
+            pointerEvents:"none",
+          }}/>
+          {/* Coffee station shadow (only when visible) */}
+          {upgrades.has("coffeemaker")&&(
+            <div style={{
+              position:"absolute",
+              left:`${(1185/1760)*100}%`,
+              top:`${(675/990)*100}%`,
+              width:`${(110/1760)*100}%`,
+              height:`${(24/990)*100}%`,
+              borderRadius:"50%",
+              background:"rgba(20,8,0,0.12)",
+              filter:"blur(5px)",
+              zIndex:1,
+              pointerEvents:"none",
+            }}/>
+          )}
+
+          {/* ── MONITOR GLOW OVERLAY ── */}
+          {monitorGlowColor&&(
+            <div
+              className={monitorGlowCssClass}
+              style={{
+                position:"absolute",
+                left:`${(755/1760)*100}%`,
+                top:`${(350/990)*100}%`,
+                width:`${(215/1760)*100}%`,
+                height:`${(130/990)*100}%`,
+                borderRadius:"40%",
+                background:monitorGlowColor,
+                filter:"blur(18px)",
+                zIndex:6,
+                pointerEvents:"none",
+                mixBlendMode:"screen",
+              }}
+            />
+          )}
+
           <motion.img
             key={developerSprite}
             className="scene-layer"
@@ -1836,27 +1972,33 @@ export default function GarageScene() {
               ))}
             </AnimatePresence>
             {hoveredObject==="computer"&&(
-              <ellipse cx={computerPos.x} cy={computerPos.y+45} rx={125} ry={50} fill="#f59e0b" opacity={tutorialStep==="start"?0.16:0.11}/>
+              <>
+                <ellipse cx={computerPos.x} cy={computerPos.y+45} rx={145} ry={58} fill="#f59e0b" opacity={tutorialStep==="start"?0.22:0.14}/>
+                <rect x={computerPos.x-148} y={computerPos.y-18} width={296} height={160} rx={22} fill="#f59e0b" opacity={0.04} stroke="#f59e0b" strokeWidth="2" strokeOpacity="0.30"/>
+              </>
             )}
             {hoveredObject==="shelf"&&(
-              <ellipse cx={bookshelfPos.x+10} cy={bookshelfPos.y+155} rx={92} ry={158} fill="#a855f7" opacity={0.1}/>
+              <>
+                <ellipse cx={bookshelfPos.x+10} cy={bookshelfPos.y+155} rx={108} ry={168} fill="#a855f7" opacity={0.13}/>
+                <rect x={bookshelfPos.x-118} y={bookshelfPos.y-30} width={236} height={360} rx={22} fill="#a855f7" opacity={0.04} stroke="#a855f7" strokeWidth="2" strokeOpacity="0.30"/>
+              </>
             )}
             {hoveredObject==="char"&&(
-              <ellipse cx={charHead.x} cy={charHead.y+130} rx={70} ry={55} fill="#3b82f6" opacity={0.1}/>
+              <ellipse cx={charHead.x} cy={charHead.y+130} rx={80} ry={60} fill="#3b82f6" opacity={0.11}/>
             )}
             {hoveredObject==="desk"&&(
-              <ellipse cx={deskTop.x} cy={deskTop.y+70} rx={170} ry={65} fill="#d97706" opacity={0.07}/>
+              <ellipse cx={deskTop.x} cy={deskTop.y+70} rx={185} ry={70} fill="#d97706" opacity={0.08}/>
             )}
             {hoveredObject==="computer"&&(
               <g className="hover-label">
-                <rect x={computerPos.x-66} y={computerPos.y-138} width={132} height={32} rx={16} fill="#111827" opacity={0.84}/>
-                <text x={computerPos.x} y={computerPos.y-116} textAnchor="middle" fontSize="17" fontWeight="bold" fill="white">Computer</text>
+                <rect x={computerPos.x-74} y={computerPos.y-148} width={148} height={34} rx={17} fill="#111827" opacity={0.90}/>
+                <text x={computerPos.x} y={computerPos.y-124} textAnchor="middle" fontSize="18" fontWeight="bold" fill="white">🖥 Computer</text>
               </g>
             )}
             {hoveredObject==="shelf"&&(
               <g className="hover-label">
-                <rect x={bookshelfPos.x-70} y={bookshelfPos.y-48} width={140} height={32} rx={16} fill="#111827" opacity={0.84}/>
-                <text x={bookshelfPos.x} y={bookshelfPos.y-26} textAnchor="middle" fontSize="17" fontWeight="bold" fill="white">Upgrades</text>
+                <rect x={bookshelfPos.x-76} y={bookshelfPos.y-56} width={152} height={34} rx={17} fill="#111827" opacity={0.90}/>
+                <text x={bookshelfPos.x} y={bookshelfPos.y-32} textAnchor="middle" fontSize="18" fontWeight="bold" fill="white">📚 Upgrades</text>
               </g>
             )}
             {hoveredObject==="char"&&(
@@ -1886,14 +2028,6 @@ export default function GarageScene() {
                 <text x={monitorPos.x} y={monitorPos.y-120} textAnchor="middle" fontSize="17" fontWeight="bold"
                   fill="white" stroke="rgba(0,0,0,0.2)" strokeWidth="2" paintOrder="stroke">{currentHint}</text>
                 <polygon points={`${monitorPos.x},${monitorPos.y-65} ${monitorPos.x-12},${monitorPos.y-98} ${monitorPos.x+12},${monitorPos.y-98}`} fill="#f59e0b"/>
-              </motion.g>
-            )}
-            {missedClicks>=2&&tutorialStep==="start"&&(
-              <motion.g animate={{opacity:[0.8,1,0.8]}} transition={{repeat:Infinity,duration:1.4}}>
-                <rect x={computerPos.x-112} y={computerPos.y+120} width={224} height={34} rx={17} fill="#92400e" opacity={0.88}/>
-                <text x={computerPos.x} y={computerPos.y+143} textAnchor="middle" fontSize="17" fontWeight="bold" fill="#fef3c7">
-                  Try the computer.
-                </text>
               </motion.g>
             )}
           </svg>
@@ -2350,8 +2484,11 @@ export default function GarageScene() {
             className="absolute top-24 right-3 z-20 w-[260px] pointer-events-none"
           >
             <div className="mb-2 flex items-center justify-between px-1">
-              <div className="text-[9px] font-black uppercase tracking-widest text-gray-600">Live Sales</div>
-              <div className="text-[9px] font-bold text-gray-500">week-by-week</div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 live-dot"/>
+                <div className="text-[10px] font-black uppercase tracking-widest text-gray-700">Live Sales</div>
+              </div>
+              <div className="text-[9px] font-bold text-gray-400">week-by-week</div>
             </div>
             <div className="flex flex-col gap-2">
               {marketFeedGames.map(game=>{
@@ -2359,7 +2496,8 @@ export default function GarageScene() {
                 const maxBar = Math.max(1,...recentBars.map(w=>w.chartValue));
                 const latest = game.weeklySales[game.weeklySales.length-1] ?? null;
                 const first = game.weeklySales[0]?.units ?? 0;
-                const cooling = game.status==="active_on_market" && latest!==null && first>0 && latest.units<first*0.45;
+                const isLive = game.status==="active_on_market";
+                const cooling = isLive && latest!==null && first>0 && latest.units<first*0.45;
                 const statusLabel = game.status==="finished"?"Finished":cooling?"Cooling Down":"Selling";
                 const statusColor = game.status==="finished"?"text-gray-400":cooling?"text-amber-500":"text-green-600";
                 return(
@@ -2369,14 +2507,23 @@ export default function GarageScene() {
                     initial={{opacity:0,y:8}}
                     animate={{opacity:1,y:0}}
                     exit={{opacity:0,y:-8}}
-                    className="rounded-xl border border-gray-200 bg-white/92 backdrop-blur shadow-lg p-2.5"
+                    className={`rounded-xl border backdrop-blur shadow-lg p-2.5 transition-colors ${
+                      game.status==="finished"
+                        ?"border-gray-200 bg-white/70 opacity-70"
+                        :"border-green-300/60 bg-white/95"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="min-w-0">
                         <div className="font-black text-[12px] text-gray-900 truncate">{game.title}</div>
                         <div className="text-[9px] text-gray-400 truncate">{game.topic} · {game.genre}</div>
                       </div>
-                      <div className={`text-[9px] font-black shrink-0 ${statusColor}`}>{statusLabel}</div>
+                      <div className={`flex items-center gap-1 shrink-0`}>
+                        {isLive&&!cooling&&(
+                          <div className="w-1.5 h-1.5 rounded-full bg-green-500 live-dot"/>
+                        )}
+                        <div className={`text-[9px] font-black ${statusColor}`}>{statusLabel}</div>
+                      </div>
                     </div>
                     <div className="grid grid-cols-3 gap-1 mb-2">
                       <div className="rounded-lg bg-gray-50 px-1.5 py-1 text-center">
@@ -2384,7 +2531,7 @@ export default function GarageScene() {
                         <div className="text-[8px] font-bold text-gray-400">units</div>
                       </div>
                       <div className="rounded-lg bg-green-50 px-1.5 py-1 text-center">
-                        <div className="text-[10px] font-black text-green-700">${game.totalRevenue.toLocaleString()}</div>
+                        <div className="text-[11px] font-black text-green-700">${game.totalRevenue.toLocaleString()}</div>
                         <div className="text-[8px] font-bold text-green-500">revenue</div>
                       </div>
                       <div className="rounded-lg bg-amber-50 px-1.5 py-1 text-center">
@@ -2401,7 +2548,13 @@ export default function GarageScene() {
                           initial={{height:0,opacity:0.5}}
                           animate={{height:Math.max(4,Math.round((bar.chartValue/maxBar)*34)),opacity:1}}
                           transition={{duration:0.35,ease:"easeOut"}}
-                          className={`flex-1 rounded-t ${game.status==="finished"?"bg-gray-500":bar.week===latest?.week?"bg-amber-400":"bg-green-500"}`}
+                          className={`flex-1 rounded-t ${
+                            game.status==="finished"
+                              ?"bg-gray-500"
+                              :bar.week===latest?.week
+                                ?"bg-amber-400 latest-bar"
+                                :"bg-green-500"
+                          }`}
                         />
                       ))}
                     </div>
@@ -2411,7 +2564,10 @@ export default function GarageScene() {
             </div>
             {salesLogRows.length>0&&(
               <div className="mt-2 rounded-xl border border-gray-800 bg-gray-950/90 backdrop-blur shadow-lg p-2 overflow-hidden">
-                <div className="text-[9px] font-black uppercase tracking-widest text-gray-600 mb-1">Sales ticker</div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <div className="w-1 h-1 rounded-full bg-amber-500 live-dot"/>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-gray-500">Sales ticker</div>
+                </div>
                 <div className="flex flex-col gap-1 max-h-[128px] overflow-hidden">
                   <AnimatePresence initial={false}>
                     {salesLogRows.slice(-6).map((row,i,rows)=>(
