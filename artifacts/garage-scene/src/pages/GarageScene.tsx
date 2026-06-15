@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// ── Global window type declarations ──
+declare global {
+  interface Window {
+    printSessionSummary?: () => void;
+    resetGame?: () => void;
+    runSmokeTest?: () => void;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: ANALYTICS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -28,8 +37,11 @@ const analytics = {
   autoPlayedSales: false,
   reachedSummary: false,
   menuOpens: 0,
+  menuItemClicks: 0,
+  contractWorkOpened: 0,
   contractsStarted: 0,
   contractsCompleted: 0,
+  gameHistoryOpened: 0,
   panelsOpened: 0,
   actionsUsed: 0,
   bubblesSpawned: 0,
@@ -501,57 +513,95 @@ export default function GarageScene() {
   // ── Window helpers ──
   useEffect(()=>{
     track("session_start",{});
-    (window as Record<string,unknown>).printSessionSummary = ()=>{
-      const elapsed = (Date.now()-analytics.sessionStartedAt)/1000;
-      console.group("[Session Summary]");
-      console.log(`Time played: ${elapsed.toFixed(0)}s`);
-      console.log("Funnel flags:", analytics.flags);
-      console.log(`First click: ${analytics.firstComputerClick?((analytics.firstComputerClick-analytics.sessionStartedAt)/1000).toFixed(1)+"s":"never"}`);
-      console.log(`First project start: ${analytics.firstProjectStart?((analytics.firstProjectStart-analytics.sessionStartedAt)/1000).toFixed(1)+"s":"never"}`);
-      console.log(`First release: ${analytics.firstRelease?((analytics.firstRelease-analytics.sessionStartedAt)/1000).toFixed(1)+"s":"never"}`);
-      console.log(`First upgrade: ${analytics.firstUpgradeBought?((analytics.firstUpgradeBought-analytics.sessionStartedAt)/1000).toFixed(1)+"s":"never"}`);
-      console.log(`Started second project: ${analytics.flags.startedSecondProject}`);
-      console.log(`Released second game: ${analytics.flags.secondGameReleased}`);
-      console.log(`Beat previous score: ${analytics.flags.beatPreviousScore}`);
-      console.log(`Beat previous revenue: ${analytics.flags.beatPreviousRevenue}`);
-      console.log(`Used upgrade before second game: ${analytics.flags.usedUpgradeBeforeSecond}`);
-      console.log(`Best score: ${analytics.bestScore}`);
-      console.log(`Best revenue: $${analytics.bestRevenue.toLocaleString()}`);
-      console.log(`Total games released: ${analytics.totalGamesReleased}`);
-      console.log(`Panels opened: ${analytics.panelsOpened}  Actions used: ${analytics.actionsUsed}  Bubbles spawned: ${analytics.bubblesSpawned}`);
-      const t0 = analytics.sessionStartedAt;
-      const rel = (ts:number|null)=>ts?((ts-t0)/1000).toFixed(1)+"s":"never";
-      console.group("[Affordance Timing]");
-      console.log(`Time to first object hover: ${rel(analytics.firstObjectHover)}`);
-      console.log(`Time to first computer click: ${rel(analytics.firstComputerClick)}`);
-      console.log(`Time to new project panel: ${rel(analytics.firstModalOpen)}`);
-      console.log(`Time to first project start: ${rel(analytics.firstProjectStart)}`);
-      console.log(`Used default project settings: ${analytics.usedDefaultProjectSettings}`);
-      console.log(`Changed form from defaults: ${analytics.formChangedFromDefaults}`);
-      console.log(`Missed scene clicks before first project: ${analytics.missedClicksBeforeStart}`);
-      console.groupEnd();
-      console.group("[Release Flow]");
-      console.log(`Release flow started: ${rel(analytics.releaseFlowStartedAt)}`);
-      console.log(`Reviews revealed: ${analytics.reviewsRevealed}`);
-      console.log(`Sales weeks viewed: ${analytics.salesWeeksViewed}`);
-      console.log(`Skipped sales: ${analytics.skippedSales}`);
-      console.log(`Auto-played sales: ${analytics.autoPlayedSales}`);
-      console.log(`Reached summary: ${analytics.reachedSummary}`);
-      console.groupEnd();
-      console.group("[Market Trends]");
-      console.log(`Trends seen this session: ${analytics.trendsSeen}`);
-      console.log(`Games matching a trend: ${analytics.gamesMatchingTrend}`);
-      console.log(`Games ignoring a trend: ${analytics.gamesIgnoringTrend}`);
-      const avgTrendRev = analytics.trendMatchedRevenue.length>0
-        ? Math.round(analytics.trendMatchedRevenue.reduce((a,b)=>a+b,0)/analytics.trendMatchedRevenue.length)
-        : 0;
-      console.log(`Avg revenue of trend-matched games: $${avgTrendRev.toLocaleString()}`);
-      console.log(`Player used trend after seeing it: ${analytics.usedTrendAfterSeeing}`);
-      console.log(`Trend badge seen: ${analytics.trendBadgeSeen}`);
-      console.groupEnd();
+    window.printSessionSummary = ()=>{
+      try {
+        const elapsed = (Date.now()-analytics.sessionStartedAt)/1000;
+        const t0 = analytics.sessionStartedAt;
+        const rel = (ts:number|null)=>ts?((ts-t0)/1000).toFixed(1)+"s":"never";
+        console.group("[Session Summary]");
+        console.log(`Time played: ${elapsed.toFixed(0)}s`);
+        console.log("Funnel flags:", {...analytics.flags});
+        console.group("[Progression]");
+        console.log(`First project started: ${analytics.flags.startedFirstProject}`);
+        console.log(`First game released: ${analytics.flags.releasedFirstGame}`);
+        console.log(`Second project started: ${analytics.flags.startedSecondProject}`);
+        console.log(`Second game released: ${analytics.flags.secondGameReleased}`);
+        console.log(`Beat previous score: ${analytics.flags.beatPreviousScore}`);
+        console.log(`Beat previous revenue: ${analytics.flags.beatPreviousRevenue}`);
+        console.log(`Bought upgrade before second game: ${analytics.flags.usedUpgradeBeforeSecond}`);
+        console.log(`Best score: ${analytics.bestScore}`);
+        console.log(`Best revenue: $${analytics.bestRevenue.toLocaleString()}`);
+        console.log(`Total games released: ${analytics.totalGamesReleased}`);
+        console.groupEnd();
+        console.group("[Global Menu]");
+        console.log(`Menu opened: ${analytics.menuOpens} times`);
+        console.log(`Menu item clicks: ${analytics.menuItemClicks}`);
+        console.groupEnd();
+        console.group("[Contract Work]");
+        console.log(`Contract work panel opened: ${analytics.contractWorkOpened}`);
+        console.log(`Contracts started: ${analytics.contractsStarted}`);
+        console.log(`Contracts completed: ${analytics.contractsCompleted}`);
+        console.groupEnd();
+        console.group("[Game History]");
+        console.log(`History panel opened: ${analytics.gameHistoryOpened}`);
+        console.groupEnd();
+        console.group("[Affordance Timing]");
+        console.log(`Time to first object hover: ${rel(analytics.firstObjectHover)}`);
+        console.log(`Time to first computer click: ${rel(analytics.firstComputerClick)}`);
+        console.log(`Time to new project panel: ${rel(analytics.firstModalOpen)}`);
+        console.log(`Time to first project start: ${rel(analytics.firstProjectStart)}`);
+        console.log(`Missed clicks before first project: ${analytics.missedClicksBeforeStart}`);
+        console.log(`Used default project settings: ${analytics.usedDefaultProjectSettings}`);
+        console.log(`Changed form from defaults: ${analytics.formChangedFromDefaults}`);
+        console.groupEnd();
+        console.group("[Release Flow]");
+        console.log(`Did player finish release flow: ${analytics.reachedSummary}`);
+        console.log(`Release flow started at: ${rel(analytics.releaseFlowStartedAt)}`);
+        console.log(`Reviews revealed: ${analytics.reviewsRevealed}`);
+        console.log(`Sales weeks viewed: ${analytics.salesWeeksViewed}`);
+        console.log(`Skipped sales: ${analytics.skippedSales}`);
+        console.log(`Auto-played sales: ${analytics.autoPlayedSales}`);
+        console.groupEnd();
+        console.group("[Market Trends]");
+        console.log(`Trends seen this session: ${analytics.trendsSeen}`);
+        console.log(`Games matching a trend: ${analytics.gamesMatchingTrend}`);
+        console.log(`Games ignoring a trend: ${analytics.gamesIgnoringTrend}`);
+        const avgTrendRev = analytics.trendMatchedRevenue.length>0
+          ? Math.round(analytics.trendMatchedRevenue.reduce((a,b)=>a+b,0)/analytics.trendMatchedRevenue.length)
+          : 0;
+        console.log(`Avg revenue of trend-matched games: $${avgTrendRev.toLocaleString()}`);
+        console.log(`Player used trend after seeing it: ${analytics.usedTrendAfterSeeing}`);
+        console.log(`Trend badge seen: ${analytics.trendBadgeSeen}`);
+        console.groupEnd();
+        console.log(`Panels opened: ${analytics.panelsOpened}  Actions used: ${analytics.actionsUsed}  Bubbles spawned: ${analytics.bubblesSpawned}`);
+        console.groupEnd();
+      } catch(e) {
+        console.error("[printSessionSummary] failed:", e);
+      }
+    };
+    window.resetGame = ()=>window.location.reload();
+    window.runSmokeTest = ()=>{
+      console.group("[runSmokeTest]");
+      const checks: {label:string;ok:boolean;detail?:string}[] = [];
+      checks.push({label:"window.printSessionSummary exists", ok: typeof window.printSessionSummary==="function"});
+      checks.push({label:"window.resetGame exists",           ok: typeof window.resetGame==="function"});
+      checks.push({label:"analytics object valid",            ok: typeof analytics==="object" && typeof analytics.flags==="object"});
+      checks.push({label:"analytics.flags has required keys", ok: "startedFirstProject" in analytics.flags && "releasedFirstGame" in analytics.flags});
+      checks.push({label:"analytics.menuOpens is number",     ok: typeof analytics.menuOpens==="number"});
+      checks.push({label:"analytics.contractsStarted is num", ok: typeof analytics.contractsStarted==="number"});
+      const phaseEl = document.querySelector("[data-panel='release-flow']");
+      const menuEl  = document.querySelector("[data-panel='studio-menu']");
+      const newGameEl = document.querySelector("[data-panel='newgame']");
+      checks.push({label:"No conflicting open panels (release+menu)", ok: !(phaseEl && menuEl), detail: phaseEl&&menuEl?"release flow and studio menu both open":"ok"});
+      checks.push({label:"No conflicting open panels (release+newgame)", ok: !(phaseEl && newGameEl), detail: phaseEl&&newGameEl?"release flow and new game both open":"ok"});
+      let passed = 0;
+      for(const c of checks){
+        if(c.ok){ console.log(`✓ ${c.label}`); passed++; }
+        else     { console.warn(`✗ ${c.label}${c.detail?" — "+c.detail:""}`); }
+      }
+      console.log(`Result: ${passed}/${checks.length} checks passed`);
       console.groupEnd();
     };
-    (window as Record<string,unknown>).resetGame = ()=>window.location.reload();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
@@ -1006,6 +1056,7 @@ export default function GarageScene() {
 
   // ── Studio menu handlers ──
   function openContractWork(){
+    analytics.contractWorkOpened++;
     const pool=[...CONTRACT_POOL].sort(()=>Math.random()-0.5).slice(0,3);
     setContractJobs(pool);
     setShowContractWork(true);
@@ -1020,11 +1071,16 @@ export default function GarageScene() {
     setTimeout(()=>setToast(null),3500);
   }
   function handleMenuAction(action:string){
+    analytics.menuItemClicks++;
     setStudioMenu(null);
     track("global_menu_item_clicked",{action,phase});
     if(action==="newGame")       { setShowNewGame(true); }
     else if(action==="contractWork"){ openContractWork(); }
-    else if(action==="history")  { setShowHistory(true); track("game_history_opened",{games:history.length}); }
+    else if(action==="history")  {
+      analytics.gameHistoryOpened++;
+      setShowHistory(true);
+      track("game_history_opened",{games:history.length});
+    }
     else if(action==="develop")  { setShowComputer(true); }
     else if(action==="viewProject"){ setShowComputer(true); }
     else if(action==="release")  { releaseGame(); }
