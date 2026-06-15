@@ -1,0 +1,393 @@
+You are working inside the existing project:
+
+Garage-Scene-Sim
+
+Goal:
+Implement a modular character customization system using transparent PNG asset parts instead of one complete developer sprite.
+
+Important:
+Do not build a full new gameplay system.
+Do not add save/load, employees, offices, publishers, custom engines, research trees, new contracts, or new market systems.
+
+This pass is only about:
+1. turning the generated art assets into modular customization parts
+2. layering them into one character render
+3. proving that the character can be assembled from parts
+4. keeping the current game logic intact
+
+The character should NOT be rendered as one full static developer image.
+Instead, it should be composed from separate transparent layers.
+
+Customization categories:
+1. clothing
+2. skin
+3. chair
+4. hair
+
+Optional:
+5. hands / typing arms
+
+==================================================
+1. TARGET ARCHITECTURE
+==================================================
+
+Implement the character as a layered render stack.
+
+Render order from back to front:
+
+1. chair
+2. base / body silhouette (if needed)
+3. skin
+4. clothing
+5. hands / arms
+6. hair
+
+The final result should appear as one seated developer at the PC desk, but technically it is multiple transparent PNG layers stacked together.
+
+==================================================
+2. ASSET RULES
+==================================================
+
+All character-part assets must be:
+- transparent PNG
+- same canvas size
+- same alignment frame
+- same seated-at-PC pose family
+- suitable for stacking directly
+
+If current generated assets are sprite sheets / multi-item grids:
+- slice them into individual files
+- save individual files into organized folders
+
+Expected folder structure:
+
+assets/character/
+  manifest.json
+  chair/
+    chair_black.png
+    chair_gray.png
+    chair_blue.png
+  skin/
+    skin_light.png
+    skin_medium.png
+    skin_dark.png
+  clothing/
+    hoodie_blue.png
+    hoodie_red.png
+    jacket_dark.png
+    sweater_green.png
+  hair/
+    hair_brown_01.png
+    hair_black_01.png
+    hair_blond_01.png
+    hair_red_01.png
+  hands/
+    hands_light_typing_1.png
+    hands_light_typing_2.png
+    hands_medium_typing_1.png
+    hands_dark_typing_1.png
+
+If some categories do not exist yet, create placeholders only from the already provided generated assets.
+Do not invent new art in code.
+
+==================================================
+3. SAME FRAME SIZE
+==================================================
+
+All part images must use the same internal frame size.
+
+Recommended:
+512 x 512 px
+
+Even if the visible item is small, keep the full 512x512 transparent canvas so all parts align automatically.
+
+Examples:
+- hair_brown_01.png -> 512x512 transparent PNG
+- hoodie_blue.png -> 512x512 transparent PNG
+- chair_black.png -> 512x512 transparent PNG
+- skin_light.png -> 512x512 transparent PNG
+
+Do not keep mismatched dimensions for layered parts.
+
+==================================================
+4. IF SPRITE SHEETS NEED SLICING
+==================================================
+
+If the generated images are sprite sheets / grids:
+- inspect the file
+- determine number of columns/rows
+- slice the sheet into separate PNG parts
+- discard empty cells
+- save the cropped assets into the appropriate folders
+
+If needed, add a small one-time utility script in the repo, for example:
+scripts/slice-character-assets.ts
+or
+scripts/slice-character-assets.py
+
+The script should:
+- load source PNG
+- slice by grid
+- trim transparent margins only if preserving alignment is still possible
+- place result into proper asset folders
+- not run at runtime in the browser
+
+==================================================
+5. CREATE MANIFEST
+==================================================
+
+Create:
+
+assets/character/manifest.json
+
+Structure example:
+
+{
+  "frame": {
+    "width": 512,
+    "height": 512
+  },
+  "layers": ["chair", "skin", "clothing", "hands", "hair"],
+  "defaults": {
+    "chair": "chair_black",
+    "skin": "skin_light",
+    "clothing": "hoodie_blue",
+    "hands": "hands_light_typing_1",
+    "hair": "hair_brown_01"
+  },
+  "items": {
+    "chair_black": {
+      "type": "chair",
+      "file": "chair/chair_black.png"
+    },
+    "skin_light": {
+      "type": "skin",
+      "file": "skin/skin_light.png"
+    },
+    "hoodie_blue": {
+      "type": "clothing",
+      "file": "clothing/hoodie_blue.png"
+    },
+    "hands_light_typing_1": {
+      "type": "hands",
+      "file": "hands/hands_light_typing_1.png"
+    },
+    "hair_brown_01": {
+      "type": "hair",
+      "file": "hair/hair_brown_01.png"
+    }
+  }
+}
+
+Use real filenames that actually exist.
+
+==================================================
+6. CHARACTER CUSTOMIZATION STATE
+==================================================
+
+Create a typed state object.
+
+Example:
+
+type CharacterCustomization = {
+  chair: string;
+  skin: string;
+  clothing: string;
+  hands: string;
+  hair: string;
+};
+
+Default example:
+
+const defaultCharacterCustomization: CharacterCustomization = {
+  chair: "chair_black",
+  skin: "skin_light",
+  clothing: "hoodie_blue",
+  hands: "hands_light_typing_1",
+  hair: "hair_brown_01"
+};
+
+Do not overcomplicate this.
+Simple string IDs are enough.
+
+==================================================
+7. RENDER THE CHARACTER AS LAYERS
+==================================================
+
+Create a reusable component, for example:
+
+CharacterComposite.tsx
+
+It should:
+- accept customization state
+- accept current work state (idle / typing / tired / celebrate)
+- render stacked transparent PNG layers
+- keep a stable position at the CRT desk
+
+Suggested structure:
+
+<div className="developer-anchor">
+  <img className="char-layer chair" src={chairSrc} alt="" />
+  <img className="char-layer skin" src={skinSrc} alt="" />
+  <img className="char-layer clothing" src={clothingSrc} alt="" />
+  <img className="char-layer hands" src={handsSrc} alt="" />
+  <img className="char-layer hair" src={hairSrc} alt="" />
+</div>
+
+CSS example:
+
+.developer-anchor {
+  position: absolute;
+  left: 72.5%;
+  top: 49%;
+  width: 10.5%;
+  transform: translate(-50%, -18%);
+  z-index: 12;
+  pointer-events: none;
+}
+
+.char-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+All layers must align automatically because they share the same frame size.
+
+==================================================
+8. HANDLE STATE VARIANTS
+==================================================
+
+The customization system should support work-state swaps without changing the whole character architecture.
+
+For now:
+- chair, skin, clothing, hair remain selected by customization
+- hands can change by state
+- optionally clothing/body variant can change later
+
+Examples:
+- idle -> hands_idle or no hands layer change
+- typing -> alternate hands_typing_1 / hands_typing_2
+- tired -> use tired hands/arms variant if available
+- celebrate -> use celebration arms variant if available
+
+If only typing hand variants exist:
+- animate only the hands layer during development
+- keep the rest static
+
+This is enough for proof-of-concept.
+
+==================================================
+9. DO NOT BUILD FULL CHARACTER CREATOR UI
+==================================================
+
+Do not build a large customization screen yet.
+
+Only add a lightweight proof-of-concept control set, for example:
+- temporary dev panel
+or
+- small hidden debug panel
+or
+- hardcoded state toggles
+
+Minimum viable proof:
+- change clothing
+- change skin
+- change chair
+- change hair
+
+A small test panel is acceptable.
+
+Example:
+- Skin: light / medium / dark
+- Hair: brown / black / blond / red
+- Clothing: hoodie blue / jacket dark / sweater green
+- Chair: black / gray / blue
+
+Keep it minimal.
+
+==================================================
+10. PRESERVE GAMEPLAY
+==================================================
+
+Do not break:
+- Level 1 room background
+- computer click interaction
+- project creation
+- development loop
+- design/tech/bug/research/hype bubbles
+- release-ready logic
+- review reveal
+- live sales
+- global menu
+- upgrades
+- contracts
+- market trends
+- playtest mode
+- printSessionSummary()
+- runSmokeTest()
+- TypeScript correctness
+
+The character customization system is only a visual rendering refactor.
+
+==================================================
+11. FALLBACK BEHAVIOR
+==================================================
+
+If some asset categories are incomplete:
+- keep the system architecture
+- use only available assets
+- report which categories are missing
+- do not fake broken combinations
+
+For example:
+- if only one chair exists, still support the chair layer
+- if only two hair styles exist, still support the hair category
+- if hands are incomplete, keep static hands until more assets exist
+
+==================================================
+12. TYPECHECK
+==================================================
+
+Run:
+
+pnpm run typecheck
+
+Fix all errors.
+
+==================================================
+13. MANUAL QA
+==================================================
+
+Verify:
+
+1. Character is rendered from multiple PNG layers, not one flat sprite
+2. All layers align properly
+3. Transparency works
+4. Clothing can be switched
+5. Skin can be switched
+6. Hair can be switched
+7. Chair can be switched
+8. Typing state can animate via hands layer if available
+9. Character still sits correctly at the Level 1 desk
+10. Core game loop still works
+11. No overlays or scene staging regressions
+12. End Playtest still works
+
+==================================================
+14. DELIVERABLE
+==================================================
+
+When done, report:
+- which source sheets were sliced
+- which asset files were created
+- manifest structure
+- final layer order
+- whether hands typing animation works
+- which customization categories are functional
+- typecheck result
+- manual QA result

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { CharacterComposite, DEFAULT_CUSTOMIZATION, type CharacterCustomization, type CharWorkState } from "../components/CharacterComposite";
 import { createGameEventBus, type GameEvent, type WeeklySalesPoint } from "../simulation/gameEvents";
 import {
   createActiveMarketGame,
@@ -29,6 +30,8 @@ const DEBUG_HITBOXES = false;
 // Disabled: current front-facing seated sprites do not match the Level 1 CRT desk perspective.
 // Enable once dedicated side-facing sprites are available.
 const SHOW_DEVELOPER_SPRITE = false;
+// Composite character from modular PNG layers. Set true to show the layered character.
+const SHOW_CHARACTER_COMPOSITE = true;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: ANALYTICS
@@ -536,8 +539,11 @@ export default function GarageScene() {
   const [surveyAnswers,setSurveyAnswers] = useState({q1:0,q2:0,q3:0,q4:0,feedback:""});
   // ── Release cinematic state ──
   const [reviewDisplayScore,setReviewDisplayScore] = useState(0);
-  const [typingFrame,setTypingFrame] = useState(0);
+  const [typingFrame,setTypingFrame] = useState<0|1>(0);
   const scoreRollIntervalRef = useRef<ReturnType<typeof setInterval>|null>(null);
+  // ── Character customization ──
+  const [characterCustomization,setCharacterCustomization] = useState<CharacterCustomization>(DEFAULT_CUSTOMIZATION);
+  const [showCustomPanel,setShowCustomPanel] = useState(false);
 
   // ── Refs ──
   const phaseRef     = useRef(phase);
@@ -790,7 +796,7 @@ export default function GarageScene() {
   },[]);
 
   useEffect(()=>{
-    const id = setInterval(()=>setTypingFrame(frame=>frame+1),420);
+    const id = setInterval(()=>setTypingFrame(frame=>(frame===0?1:0)),420);
     return ()=>clearInterval(id);
   },[]);
 
@@ -1906,6 +1912,31 @@ export default function GarageScene() {
                  developer_pc_celebrate.png
                Current front-facing seated sprites are disabled because they do not match the room perspective.
           ─────────────────────────────────────────────────────────────────── */}
+          {/* ── CHARACTER COMPOSITE (layered PNG system) ── */}
+          {SHOW_CHARACTER_COMPOSITE&&(
+            <div style={{
+              position:"absolute",
+              left:"72.5%",
+              top: celebrating ? "47%" : "49%",
+              width: celebrating ? "12.5%" : "10.5%",
+              transform:"translate(-50%, -18%)",
+              zIndex:12,
+              pointerEvents:"none",
+            }}>
+              <CharacterComposite
+                customization={characterCustomization}
+                workState={(()=>{
+                  const s = developerSpriteState;
+                  if(s==="celebrating") return "celebrating" as CharWorkState;
+                  if(s==="working") return "working" as CharWorkState;
+                  if(s==="tired") return "tired" as CharWorkState;
+                  return "idle" as CharWorkState;
+                })()}
+                typingFrame={typingFrame as 0|1}
+              />
+            </div>
+          )}
+
           {SHOW_DEVELOPER_SPRITE&&(
             <div
               className="developer-anchor"
@@ -3406,6 +3437,77 @@ export default function GarageScene() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── CHARACTER CUSTOMIZATION PANEL ─────────────────────────────────── */}
+      {SHOW_CHARACTER_COMPOSITE&&(
+        <div style={{position:"absolute",bottom:"3rem",right:"0.75rem",zIndex:50,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"0.5rem"}}>
+          <button
+            data-interactive="true"
+            onClick={()=>setShowCustomPanel(v=>!v)}
+            style={{fontSize:"10px",fontWeight:700,color:showCustomPanel?"#fbbf24":"#9ca3af",background:"rgba(17,24,39,0.75)",backdropFilter:"blur(4px)",border:`1px solid ${showCustomPanel?"#92400e":"rgba(55,65,81,0.6)"}`,borderRadius:"0.5rem",padding:"0.375rem 0.625rem",cursor:"pointer",transition:"all 0.15s",userSelect:"none"}}>
+            👤 Customize
+          </button>
+          {showCustomPanel&&(
+            <div style={{background:"rgba(17,24,39,0.92)",backdropFilter:"blur(8px)",border:"1px solid rgba(55,65,81,0.7)",borderRadius:"0.75rem",padding:"0.75rem",width:"200px",display:"flex",flexDirection:"column",gap:"0.5rem"}}>
+              {/* Chair */}
+              <div>
+                <div style={{color:"#6b7280",fontSize:"9px",fontWeight:700,letterSpacing:"0.05em",marginBottom:"0.25rem"}}>CHAIR</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.25rem"}}>
+                  {(["chair_black","chair_gray","chair_blue","chair_beige","chair_red","chair_green"] as const).map(id=>(
+                    <button key={id} data-interactive="true"
+                      onClick={()=>setCharacterCustomization(c=>({...c,chair:id}))}
+                      style={{fontSize:"8px",fontWeight:600,color:characterCustomization.chair===id?"#fbbf24":"#d1d5db",background:characterCustomization.chair===id?"rgba(146,64,14,0.6)":"rgba(31,41,55,0.6)",border:`1px solid ${characterCustomization.chair===id?"#92400e":"rgba(55,65,81,0.5)"}`,borderRadius:"0.35rem",padding:"0.2rem 0.35rem",cursor:"pointer",transition:"all 0.1s",userSelect:"none"}}>
+                      {id.replace("chair_","")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Clothing */}
+              <div>
+                <div style={{color:"#6b7280",fontSize:"9px",fontWeight:700,letterSpacing:"0.05em",marginBottom:"0.25rem"}}>CLOTHING</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.25rem"}}>
+                  {(["hoodie_teal","jacket_dark","vest_stripe","sweater_red","shirt_beige","cardigan_green","hoodie_black","tshirt_beige"] as const).map(id=>(
+                    <button key={id} data-interactive="true"
+                      onClick={()=>setCharacterCustomization(c=>({...c,clothing:id}))}
+                      style={{fontSize:"8px",fontWeight:600,color:characterCustomization.clothing===id?"#fbbf24":"#d1d5db",background:characterCustomization.clothing===id?"rgba(146,64,14,0.6)":"rgba(31,41,55,0.6)",border:`1px solid ${characterCustomization.clothing===id?"#92400e":"rgba(55,65,81,0.5)"}`,borderRadius:"0.35rem",padding:"0.2rem 0.35rem",cursor:"pointer",transition:"all 0.1s",userSelect:"none"}}>
+                      {id.replace(/_/g," ")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Skin tone */}
+              <div>
+                <div style={{color:"#6b7280",fontSize:"9px",fontWeight:700,letterSpacing:"0.05em",marginBottom:"0.25rem"}}>SKIN TONE</div>
+                <div style={{display:"flex",gap:"0.3rem"}}>
+                  {(["tone1","tone2","tone3","tone4","tone5","tone6"] as const).map((id,i)=>{
+                    const swatchColors=["#f5cba7","#e8a87c","#c68642","#8d5524","#5c3317","#3b1f0e"];
+                    return(
+                      <button key={id} data-interactive="true"
+                        onClick={()=>setCharacterCustomization(c=>({...c,skin:id}))}
+                        style={{width:"20px",height:"20px",borderRadius:"50%",background:swatchColors[i],border:`2px solid ${characterCustomization.skin===id?"#fbbf24":"transparent"}`,cursor:"pointer",transition:"all 0.1s",outline:"none"}}
+                        title={id}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Hair */}
+              <div>
+                <div style={{color:"#6b7280",fontSize:"9px",fontWeight:700,letterSpacing:"0.05em",marginBottom:"0.25rem"}}>HAIR</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.25rem"}}>
+                  {(["hair_brown_01","hair_black_01","hair_blond_01","hair_red_01","hair_green_01","hair_green_02","hair_brown_02","hair_brown_03"] as const).map(id=>(
+                    <button key={id} data-interactive="true"
+                      onClick={()=>setCharacterCustomization(c=>({...c,hair:id}))}
+                      style={{fontSize:"8px",fontWeight:600,color:characterCustomization.hair===id?"#fbbf24":"#d1d5db",background:characterCustomization.hair===id?"rgba(146,64,14,0.6)":"rgba(31,41,55,0.6)",border:`1px solid ${characterCustomization.hair===id?"#92400e":"rgba(55,65,81,0.5)"}`,borderRadius:"0.35rem",padding:"0.2rem 0.35rem",cursor:"pointer",transition:"all 0.1s",userSelect:"none"}}>
+                      {id.replace("hair_","").replace(/_/g," ")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── PLAYTEST MODE ──────────────────────────────────────────────────── */}
       {PLAYTEST_MODE&&(

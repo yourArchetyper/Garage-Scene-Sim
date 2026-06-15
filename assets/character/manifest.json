@@ -1,0 +1,44 @@
+{
+  "frame": { "width": 512, "height": 512 },
+  "layers": ["chair", "clothing", "skin", "hands", "hair"],
+  "defaults": {
+    "chair": "chair_black",
+    "clothing": "hoodie_teal",
+    "skin": "tone1",
+    "hands": "tone1",
+    "hair": "hair_brown_01"
+  },
+  "items": {
+    "chair_black":   { "type": "chair",    "file": "chair/chair_black.png" },
+    "chair_gray":    { "type": "chair",    "file": "chair/chair_gray.png" },
+    "chair_blue":    { "type": "chair",    "file": "chair/chair_blue.png" },
+    "chair_beige":   { "type": "chair",    "file": "chair/chair_beige.png" },
+    "chair_red":     { "type": "chair",    "file": "chair/chair_red.png" },
+    "chair_green":   { "type": "chair",    "file": "chair/chair_green.png" },
+
+    "hoodie_teal":      { "type": "clothing", "file": "clothing/hoodie_teal.png" },
+    "jacket_dark":      { "type": "clothing", "file": "clothing/jacket_dark.png" },
+    "vest_stripe":      { "type": "clothing", "file": "clothing/vest_stripe.png" },
+    "sweater_red":      { "type": "clothing", "file": "clothing/sweater_red.png" },
+    "shirt_beige":      { "type": "clothing", "file": "clothing/shirt_beige.png" },
+    "cardigan_green":   { "type": "clothing", "file": "clothing/cardigan_green.png" },
+    "hoodie_black":     { "type": "clothing", "file": "clothing/hoodie_black.png" },
+    "tshirt_beige":     { "type": "clothing", "file": "clothing/tshirt_beige.png" },
+
+    "hair_brown_01": { "type": "hair", "file": "hair/hair_brown_01.png" },
+    "hair_black_01": { "type": "hair", "file": "hair/hair_black_01.png" },
+    "hair_blond_01": { "type": "hair", "file": "hair/hair_blond_01.png" },
+    "hair_red_01":   { "type": "hair", "file": "hair/hair_red_01.png" },
+    "hair_green_01": { "type": "hair", "file": "hair/hair_green_01.png" },
+    "hair_green_02": { "type": "hair", "file": "hair/hair_green_02.png" },
+    "hair_brown_02": { "type": "hair", "file": "hair/hair_brown_02.png" },
+    "hair_brown_03": { "type": "hair", "file": "hair/hair_brown_03.png" },
+
+    "tone1": { "type": "skin", "head": "skin/head_tone1.png", "grab": "hands/hand_grab_tone1.png", "fist": "hands/hand_fist_tone1.png" },
+    "tone2": { "type": "skin", "head": "skin/head_tone2.png", "grab": "hands/hand_grab_tone2.png", "fist": "hands/hand_fist_tone2.png" },
+    "tone3": { "type": "skin", "head": "skin/head_tone3.png", "grab": "hands/hand_grab_tone3.png", "fist": "hands/hand_fist_tone3.png" },
+    "tone4": { "type": "skin", "head": "skin/head_tone4.png", "grab": "hands/hand_grab_tone4.png", "fist": "hands/hand_fist_tone4.png" },
+    "tone5": { "type": "skin", "head": "skin/head_tone5.png", "grab": "hands/hand_grab_tone5.png", "fist": "hands/hand_fist_tone5.png" },
+    "tone6": { "type": "skin", "head": "skin/head_tone6.png", "grab": "hands/hand_grab_tone6.png", "fist": "hands/hand_fist_tone6.png" }
+  }
+}
