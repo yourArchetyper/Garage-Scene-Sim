@@ -25,6 +25,13 @@ const analytics = {
   bestScore: 0,
   bestRevenue: 0,
   totalGamesReleased: 0,
+  // Market trend analytics
+  trendsSeen: 0,
+  gamesMatchingTrend: 0,
+  gamesIgnoringTrend: 0,
+  trendMatchedRevenue: [] as number[],
+  trendBadgeSeen: false,
+  usedTrendAfterSeeing: false,
 };
 
 function track(eventName: string, data: Record<string, unknown> = {}) {
@@ -107,6 +114,29 @@ const REVIEW_OUTLETS = [
   {name:"PC Gamer UK",        bias: 0.0},
   {name:"Digital Frontiers",  bias: 0.8},
 ];
+
+const TREND_POOL: Omit<MarketTrendDef,"startsWeek"|"endsWeek">[] = [
+  // Topic trends
+  {id:"fantasy_boom",    type:"topic",    target:"Fantasy",        title:"Fantasy Boom",       description:"Fantasy games are flying off shelves this season.",        salesMultiplier:1.25, hypeBonus:2},
+  {id:"space_craze",     type:"topic",    target:"Space",          title:"Space Craze",        description:"Players are obsessed with space exploration.",              salesMultiplier:1.20, hypeBonus:1},
+  {id:"horror_hype",     type:"topic",    target:"Horror",         title:"Horror Season",      description:"Horror games are all the rage right now.",                 salesMultiplier:1.22, hypeBonus:2},
+  {id:"detective_trend", type:"topic",    target:"Detective",      title:"Mystery Mania",      description:"Detective mysteries are trending hard.",                    salesMultiplier:1.18, hypeBonus:1},
+  {id:"racing_surge",    type:"topic",    target:"Racing",         title:"Racing Surge",       description:"Speed demons are hungry for racing games.",                 salesMultiplier:1.20, hypeBonus:1},
+  // Genre trends
+  {id:"sim_trend",       type:"genre",    target:"Simulation",     title:"Simulation Surge",   description:"Simulation games are having a massive moment.",             salesMultiplier:1.20, reviewBonus:0.25},
+  {id:"action_craze",    type:"genre",    target:"Action",         title:"Action Craze",       description:"Players want fast-paced action games right now.",           salesMultiplier:1.25, reviewBonus:0.20},
+  {id:"rpg_wave",        type:"genre",    target:"RPG",            title:"RPG Wave",           description:"Role-playing games are back in a big way.",                salesMultiplier:1.22, reviewBonus:0.30},
+  {id:"adventure_trend", type:"genre",    target:"Adventure",      title:"Adventure Season",   description:"Adventure games are winning hearts this season.",           salesMultiplier:1.18, hypeBonus:1},
+  {id:"strategy_boom",   type:"genre",    target:"Strategy",       title:"Strategy Boom",      description:"Strategy enthusiasts are buying everything in sight.",      salesMultiplier:1.20, reviewBonus:0.20},
+  // Platform trends
+  {id:"arcade_craze",    type:"platform", target:"Arcade Cabinet", title:"Arcade Craze",       description:"Arcades are packed — cabinet games are everywhere.",        salesMultiplier:1.35, reviewBonus:0.30},
+  {id:"console_boom",    type:"platform", target:"Early Console",  title:"Console Boom",       description:"Home consoles are the hot new thing this season.",          salesMultiplier:1.30, hypeBonus:2},
+  // Combo trends
+  {id:"space_action",    type:"combo",    topic:"Space",   genre:"Action",      title:"Space Action is Hot!",  description:"Space Action games are the hottest combo right now.",     salesMultiplier:1.45, reviewBonus:0.40},
+  {id:"fantasy_rpg",     type:"combo",    topic:"Fantasy", genre:"RPG",         title:"Fantasy RPG Rush",      description:"Fantasy RPGs are having a golden moment.",               salesMultiplier:1.40, reviewBonus:0.35},
+  {id:"horror_action",   type:"combo",    topic:"Horror",  genre:"Action",      title:"Horror Action Wave",    description:"Horror Action mashups are trending everywhere.",          salesMultiplier:1.38, reviewBonus:0.30},
+  {id:"detective_adv",   type:"combo",    topic:"Detective",genre:"Adventure",  title:"Detective Adventure",   description:"Mystery adventures are the talk of gaming circles.",      salesMultiplier:1.35, reviewBonus:0.25},
+];
 const REVIEW_BLURBS: Record<string,string[]> = {
   high:["A genuine classic.","Couldn't put it down.","Memorable and fresh.","A must-play."],
   mid: ["Shows real promise.","Worth a look.","Decent effort.","Has its moments."],
@@ -133,9 +163,25 @@ function comboLabel(score: number): string {
 // SECTION: TYPES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-interface Project { name:string;topic:Topic;genre:Genre;platform:Platform;design:number;tech:number;bugs:number;progress:number;research:number; }
+interface MarketTrendDef {
+  id: string;
+  type: "topic"|"genre"|"platform"|"combo";
+  target?: string;
+  topic?: Topic;
+  genre?: Genre;
+  title: string;
+  description: string;
+  salesMultiplier: number;
+  hypeBonus?: number;
+  reviewBonus?: number;
+  startsWeek: number;
+  endsWeek: number;
+}
+interface TrendEntry { gameName:string;matched:boolean;trendName:string;revenueImpact:number;scoreImpact:number; }
+
+interface Project { name:string;topic:Topic;genre:Genre;platform:Platform;design:number;tech:number;bugs:number;progress:number;research:number;hype:number; }
 interface Reviewer { outlet:string;score:number;blurb:string; }
-interface ReviewResult { gameName:string;score:number;reviewers:Reviewer[];unitsSold:number;revenue:number;fansGained:number; }
+interface ReviewResult { gameName:string;score:number;reviewers:Reviewer[];unitsSold:number;revenue:number;fansGained:number;trendMatched:boolean;trendName:string;trendRevenueBonus:number;trendScoreBonus:number; }
 interface SalesTail { gameName:string;score:number;weeksLeft:number;weeksTotal:number;baseRevenue:number;baseFans:number; }
 interface Bubble { id:number;text:string;color:string;svgX:number;svgY:number;born:number; }
 interface ReleasedGame { name:string;score:number;revenue:number;fansGained:number;bugs:number;year:number;week:number;topic:Topic;genre:Genre;platform:Platform; }
@@ -159,7 +205,24 @@ function P({p,fill,stroke="rgba(0,0,0,0.1)",sw=1,onClick,cursor}:{p:number[][];f
 // SECTION: HELPERS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function generateReview(project:Project, upgrades:Set<string>): ReviewResult {
+function trendMatchesProject(project:Project, trend:MarketTrendDef): boolean {
+  if(trend.type==="topic")    return project.topic === trend.target;
+  if(trend.type==="genre")    return project.genre === trend.target;
+  if(trend.type==="platform") return project.platform === trend.target;
+  if(trend.type==="combo")    return project.topic === trend.topic && project.genre === trend.genre;
+  return false;
+}
+
+function trendMatchesForm(topic:Topic, genre:Genre, platform:Platform, trend:MarketTrendDef|null): boolean {
+  if(!trend) return false;
+  if(trend.type==="topic")    return topic === trend.target;
+  if(trend.type==="genre")    return genre === trend.target;
+  if(trend.type==="platform") return platform === trend.target;
+  if(trend.type==="combo")    return topic === trend.topic && genre === trend.genre;
+  return false;
+}
+
+function generateReview(project:Project, upgrades:Set<string>, trend:MarketTrendDef|null=null): ReviewResult {
   const tm=TOPIC_MOD[project.topic], gm=GENRE_MOD[project.genre], pm=PLATFORM_MOD[project.platform];
   const combo=COMBO[project.genre]?.[project.topic]??1.0;
   const bugs=upgrades.has("whiteboard")?project.bugs*0.8:project.bugs;
@@ -167,9 +230,18 @@ function generateReview(project:Project, upgrades:Set<string>): ReviewResult {
   const tech=project.tech*gm.tw*tm.t*(upgrades.has("betterPC")?1.2:1.0);
   const bugPen=1/(1+bugs*0.07*gm.bugSens);
   const resMod=1+(project.research??0)*0.004;
-  const raw=((design+tech)/2)*bugPen*combo*pm.fans/14*resMod;
+  const hypeMod=1+(project.hype??0)*0.005;
+  const raw=((design+tech)/2)*bugPen*combo*pm.fans/14*resMod*hypeMod;
+
+  // Market trend bonuses
+  const matched = trend ? trendMatchesProject(project, trend) : false;
+  const trendScoreBonus = (matched && trend?.reviewBonus) ? trend.reviewBonus : 0;
+  const trendSalesMultiplier = (matched && trend) ? trend.salesMultiplier : 1.0;
+
   const score=Math.max(1.0,Math.min(10.0,raw));
-  const rounded=Math.round(score*10)/10;
+  const scorePlusTrend=Math.max(1.0,Math.min(10.0,score+trendScoreBonus));
+  const rounded=Math.round(scorePlusTrend*10)/10;
+
   const reviewers:Reviewer[]=REVIEW_OUTLETS.map(o=>{
     const rv=Math.max(1,Math.min(10,rounded+o.bias+(Math.random()-0.5)*1.2));
     const rs=Math.round(rv*10)/10;
@@ -177,9 +249,12 @@ function generateReview(project:Project, upgrades:Set<string>): ReviewResult {
     return{outlet:o.name,score:rs,blurb:blurbSet[~~(Math.random()*blurbSet.length)]};
   });
   const baseSales=Math.floor((rounded*65+Math.random()*55)*pm.sales);
-  const revenue=Math.floor(baseSales*(4+rounded*2));
+  const baseRevenue=Math.floor(baseSales*(4+rounded*2));
+  const trendedRevenue=Math.floor(baseRevenue*trendSalesMultiplier);
+  const trendRevenueBonus=trendedRevenue-baseRevenue;
   const fansGained=Math.floor((rounded*26+Math.random()*16)*pm.fans);
-  return{gameName:project.name,score:rounded,reviewers,unitsSold:baseSales,revenue,fansGained};
+  return{gameName:project.name,score:rounded,reviewers,unitsSold:baseSales,revenue:trendedRevenue,fansGained,
+    trendMatched:matched,trendName:trend?.title??"",trendRevenueBonus,trendScoreBonus};
 }
 
 function buildDiagnosis(project:Project, result:ReviewResult, upgrades:Set<string>): DiagFactor[] {
@@ -220,11 +295,16 @@ function buildDiagnosis(project:Project, result:ReviewResult, upgrades:Set<strin
   // Research
   if ((project.research??0) >= 10) factors.push({icon:"🔬",text:`Research bonus boosted quality (${Math.floor(project.research)} research pts)`,sentiment:"pos"});
 
+  // Market trend
+  if (result.trendMatched) {
+    factors.push({icon:"📈",text:`Matched current market trend — "${result.trendName}"`,sentiment:"pos"});
+  }
+
   // Score context
   if (result.score >= 8)      factors.push({icon:"⭐",text:"Outstanding quality — players loved it",sentiment:"pos"});
   else if (result.score < 4)  factors.push({icon:"↓",text:"Low score — a stronger combo and fewer bugs can turn this around",sentiment:"neg"});
 
-  return factors.slice(0, 5);
+  return factors.slice(0, 6);
 }
 
 function buildNextTarget(result:ReviewResult, history:ReleasedGame[], fans:number): NextTarget {
@@ -273,6 +353,10 @@ export default function GarageScene() {
   const [toast,setToast]         = useState<string|null>(null);
   const [celebrating,setCelebrating] = useState(false);
 
+  // ── Market trend state ──
+  const [currentTrend,setCurrentTrend] = useState<MarketTrendDef|null>(null);
+  const [trendHistory,setTrendHistory] = useState<TrendEntry[]>([]);
+
   // ── UI panels ──
   const [showNewGame,setShowNewGame]   = useState(false);
   const [showComputer,setShowComputer] = useState(false);
@@ -298,15 +382,22 @@ export default function GarageScene() {
   const weekRef      = useRef(week);
   const yearRef      = useRef(year);
   const fansRef      = useRef(fans);
+  const projectRef   = useRef(project);
   const weeksSinceEvent = useRef(0);
   const releaseReadyFired = useRef(false);
-  phaseRef.current    = phase;
-  upgradesRef.current = upgrades;
-  focusRef.current    = focusMode;
-  salesRef.current    = salesTail;
-  weekRef.current     = week;
-  yearRef.current     = year;
-  fansRef.current     = fans;
+  // Market trend refs
+  const currentTrendRef  = useRef<MarketTrendDef|null>(null);
+  const nextTrendWeekRef = useRef(16); // first trend around week 16
+  const totalWeeksRef    = useRef(0);
+  phaseRef.current      = phase;
+  upgradesRef.current   = upgrades;
+  focusRef.current      = focusMode;
+  salesRef.current      = salesTail;
+  weekRef.current       = week;
+  yearRef.current       = year;
+  fansRef.current       = fans;
+  projectRef.current    = project;
+  currentTrendRef.current = currentTrend;
 
   // ── ISO anchors ──
   const charHead     = iso(5.5,5.0,2.45);
@@ -347,6 +438,17 @@ export default function GarageScene() {
       console.log(`Best revenue: $${analytics.bestRevenue.toLocaleString()}`);
       console.log(`Total games released: ${analytics.totalGamesReleased}`);
       console.log(`Panels opened: ${analytics.panelsOpened}  Actions used: ${analytics.actionsUsed}  Bubbles spawned: ${analytics.bubblesSpawned}`);
+      console.group("[Market Trends]");
+      console.log(`Trends seen this session: ${analytics.trendsSeen}`);
+      console.log(`Games matching a trend: ${analytics.gamesMatchingTrend}`);
+      console.log(`Games ignoring a trend: ${analytics.gamesIgnoringTrend}`);
+      const avgTrendRev = analytics.trendMatchedRevenue.length>0
+        ? Math.round(analytics.trendMatchedRevenue.reduce((a,b)=>a+b,0)/analytics.trendMatchedRevenue.length)
+        : 0;
+      console.log(`Avg revenue of trend-matched games: $${avgTrendRev.toLocaleString()}`);
+      console.log(`Player used trend after seeing it: ${analytics.usedTrendAfterSeeing}`);
+      console.log(`Trend badge seen: ${analytics.trendBadgeSeen}`);
+      console.groupEnd();
       console.groupEnd();
     };
     (window as Record<string,unknown>).resetGame = ()=>window.location.reload();
@@ -465,6 +567,46 @@ export default function GarageScene() {
         setTimeout(()=>setToast(null),4000);
       }
 
+      // ── Market trend tick ──
+      totalWeeksRef.current += 1;
+      const tw = totalWeeksRef.current;
+      const activeTrend = currentTrendRef.current;
+
+      // Expire old trend
+      if(activeTrend && tw > activeTrend.endsWeek){
+        setCurrentTrend(null);
+        track("market_trend_expired",{id:activeTrend.id,title:activeTrend.title});
+        console.log(`[trend] expired: ${activeTrend.title}`);
+      }
+
+      // Spawn new trend
+      if(tw >= nextTrendWeekRef.current && !currentTrendRef.current){
+        const duration = 12+Math.floor(Math.random()*13);
+        const gap      = 12+Math.floor(Math.random()*9);
+        // Pick a trend not recently used
+        const pick = TREND_POOL[~~(Math.random()*TREND_POOL.length)];
+        const newTrend:MarketTrendDef = {...pick, startsWeek:tw, endsWeek:tw+duration};
+        setCurrentTrend(newTrend);
+        nextTrendWeekRef.current = tw + duration + gap;
+        analytics.trendsSeen++;
+        track("market_trend_started",{id:newTrend.id,title:newTrend.title});
+        setToast(`📰 Market Trend: ${newTrend.description}`);
+        setTimeout(()=>setToast(null),5500);
+        console.log(`[trend] started: ${newTrend.title} (lasts ${duration}wks)`);
+      }
+
+      // Hype bubbles during development if project matches active trend
+      if(phaseRef.current==="developing" && currentTrendRef.current){
+        const t = currentTrendRef.current;
+        const proj = projectRef.current;
+        if(proj && trendMatchesProject(proj, t) && Math.random()<0.12){
+          spawnBubble("📈 Trending!","#f59e0b",monitorPos.x+10,monitorPos.y-30);
+          if(t.hypeBonus && Math.random()<0.5){
+            setProject(p=>p?{...p,hype:(p.hype??0)+Math.ceil(t.hypeBonus!/2)}:p);
+          }
+        }
+      }
+
       console.log(`[week] Y${yearRef.current} W${weekRef.current+1}`);
     }, 2000);
     return ()=>clearInterval(id);
@@ -507,7 +649,7 @@ export default function GarageScene() {
 
   function startProject(){
     releaseReadyFired.current = false;
-    const p:Project = {name:formName||makeTitle(),topic:formTopic,genre:formGenre,platform:formPlatform,design:0,tech:0,bugs:0,progress:0,research:0};
+    const p:Project = {name:formName||makeTitle(),topic:formTopic,genre:formGenre,platform:formPlatform,design:0,tech:0,bugs:0,progress:0,research:0,hype:0};
     setProject(p);
     setPhase("developing");
     setFocusMode(null);
@@ -529,7 +671,7 @@ export default function GarageScene() {
 
   function releaseGame(){
     if(!project) return;
-    const result = generateReview(project, upgrades);
+    const result = generateReview(project, upgrades, currentTrend);
     const diag   = buildDiagnosis(project, result, upgrades);
     const tgt    = buildNextTarget(result, history, fansRef.current);
 
@@ -570,6 +712,26 @@ export default function GarageScene() {
       return newH;
     });
 
+    // Market trend tracking
+    if(result.trendMatched){
+      analytics.gamesMatchingTrend++;
+      analytics.trendMatchedRevenue.push(result.revenue);
+      analytics.usedTrendAfterSeeing = true;
+      track("trend_matched_by_project",{trendName:result.trendName,revBonus:result.trendRevenueBonus,scoreBonus:result.trendScoreBonus});
+      track("trend_bonus_applied",{revenue:result.trendRevenueBonus,score:result.trendScoreBonus});
+      if(result.trendRevenueBonus>0) track("trend_revenue_impact",{impact:result.trendRevenueBonus});
+    } else if(currentTrend){
+      analytics.gamesIgnoringTrend++;
+      track("trend_ignored_by_project",{activeTrend:currentTrend.title});
+    }
+    setTrendHistory(prev=>[...prev,{
+      gameName:project.name,
+      matched:result.trendMatched,
+      trendName:result.trendMatched?result.trendName:(currentTrend?.title??"none"),
+      revenueImpact:result.trendRevenueBonus,
+      scoreImpact:result.trendScoreBonus,
+    }]);
+
     setPhase("releasing");
     setShowComputer(false);
     if(!analytics.flags.releasedFirstGame){ analytics.firstRelease = Date.now(); }
@@ -577,7 +739,7 @@ export default function GarageScene() {
     track("game_released",{name:project.name,score:result.score,revenue:result.revenue});
     track("review_report_viewed",{});
     track("diagnosis_panel_viewed",{factors:diag.length});
-    console.log(`[release] ${project.name} | score: ${result.score}`);
+    console.log(`[release] ${project.name} | score: ${result.score} | trendMatched:${result.trendMatched}`);
   }
 
   function dismissReview(){
@@ -1001,12 +1163,19 @@ export default function GarageScene() {
         {objectiveText&&!pillDismissed&&(
           <motion.div key={objectiveText}
             initial={{opacity:0,x:20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:20}}
-            className="absolute top-3 right-3 z-20">
+            className="absolute top-3 right-3 z-20 flex flex-col items-end gap-1">
             <div className="bg-white/90 backdrop-blur border border-amber-200 rounded-full shadow px-3 py-1.5 flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"/>
               <span className="text-[10px] font-bold text-gray-700 whitespace-nowrap max-w-[180px] truncate">{objectiveText}</span>
               <button onClick={()=>setPillDismissed(true)} className="text-gray-300 hover:text-gray-500 text-[10px] leading-none ml-0.5 transition-colors">✕</button>
             </div>
+            {currentTrend&&(
+              <div className="bg-amber-50/95 backdrop-blur border border-amber-300 rounded-full shadow-sm px-2.5 py-1 flex items-center gap-1 cursor-default"
+                onClick={()=>{analytics.trendBadgeSeen=true; track("trend_badge_seen",{trend:currentTrend.title});}}>
+                <span className="text-[9px]">📈</span>
+                <span className="text-[9px] font-bold text-amber-700 whitespace-nowrap">Trend: {currentTrend.title} ↑</span>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -1188,38 +1357,58 @@ export default function GarageScene() {
               <div className="mb-3">
                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Topic</span>
                 <div className="grid grid-cols-4 gap-1">
-                  {TOPICS.map(t=>(
-                    <button key={t} onClick={()=>setFormTopic(t)}
-                      className={`text-[11px] py-1.5 px-1 rounded-lg border font-semibold transition-all active:scale-95 ${formTopic===t?"bg-amber-400 border-amber-500 text-white shadow-sm":"bg-gray-50 border-gray-200 text-gray-600 hover:bg-amber-50"}`}>
-                      {t}
-                    </button>
-                  ))}
+                  {TOPICS.map(t=>{
+                    const isTrendingTopic = currentTrend&&(currentTrend.type==="topic"&&currentTrend.target===t||(currentTrend.type==="combo"&&currentTrend.topic===t));
+                    return(
+                      <button key={t} onClick={()=>setFormTopic(t)}
+                        className={`relative text-[11px] py-1.5 px-1 rounded-lg border font-semibold transition-all active:scale-95 ${formTopic===t?"bg-amber-400 border-amber-500 text-white shadow-sm":"bg-gray-50 border-gray-200 text-gray-600 hover:bg-amber-50"}`}>
+                        {t}
+                        {isTrendingTopic&&<span className="absolute -top-1.5 -right-1 text-[7px] font-black bg-orange-400 text-white rounded-full px-1 leading-tight">↑</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="mb-3">
                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Genre</span>
                 <div className="grid grid-cols-3 gap-1">
-                  {GENRES.map(g=>(
-                    <button key={g} onClick={()=>setFormGenre(g)}
-                      className={`text-[11px] py-1.5 px-1 rounded-lg border font-semibold transition-all active:scale-95 ${formGenre===g?"bg-blue-400 border-blue-500 text-white shadow-sm":"bg-gray-50 border-gray-200 text-gray-600 hover:bg-blue-50"}`}>
-                      {g}
-                    </button>
-                  ))}
+                  {GENRES.map(g=>{
+                    const isTrendingGenre = currentTrend&&(currentTrend.type==="genre"&&currentTrend.target===g||(currentTrend.type==="combo"&&currentTrend.genre===g));
+                    return(
+                      <button key={g} onClick={()=>setFormGenre(g)}
+                        className={`relative text-[11px] py-1.5 px-1 rounded-lg border font-semibold transition-all active:scale-95 ${formGenre===g?"bg-blue-400 border-blue-500 text-white shadow-sm":"bg-gray-50 border-gray-200 text-gray-600 hover:bg-blue-50"}`}>
+                        {g}
+                        {isTrendingGenre&&<span className="absolute -top-1.5 -right-1 text-[7px] font-black bg-orange-400 text-white rounded-full px-1 leading-tight">↑</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="mb-3">
                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Platform</span>
                 <div className="flex flex-col gap-1">
-                  {PLATFORMS.map(pl=>(
-                    <button key={pl} onClick={()=>setFormPlatform(pl)}
-                      className={`text-[11px] py-1.5 px-3 rounded-lg border text-left font-semibold transition-all active:scale-95 ${formPlatform===pl?"bg-violet-400 border-violet-500 text-white shadow-sm":"bg-gray-50 border-gray-200 text-gray-600 hover:bg-violet-50"}`}>
-                      {pl}{PLATFORM_MOD[pl].techReq>0?<span className="opacity-60 ml-1 text-[9px]">(needs T&gt;{PLATFORM_MOD[pl].techReq})</span>:""}
-                    </button>
-                  ))}
+                  {PLATFORMS.map(pl=>{
+                    const isTrendingPlatform = currentTrend&&currentTrend.type==="platform"&&currentTrend.target===pl;
+                    return(
+                      <button key={pl} onClick={()=>setFormPlatform(pl)}
+                        className={`relative text-[11px] py-1.5 px-3 rounded-lg border text-left font-semibold transition-all active:scale-95 ${formPlatform===pl?"bg-violet-400 border-violet-500 text-white shadow-sm":"bg-gray-50 border-gray-200 text-gray-600 hover:bg-violet-50"}`}>
+                        {pl}{PLATFORM_MOD[pl].techReq>0?<span className="opacity-60 ml-1 text-[9px]">(needs T&gt;{PLATFORM_MOD[pl].techReq})</span>:""}
+                        {isTrendingPlatform&&<span className="ml-1.5 text-[8px] font-black text-orange-500 align-middle">↑ Trending</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
+              {/* Market trend match indicator */}
+              {currentTrend&&trendMatchesForm(formTopic,formGenre,formPlatform,currentTrend)&&(
+                <div className="mb-2 px-2.5 py-1.5 rounded-lg border border-orange-200 bg-orange-50 text-[10px] font-bold text-orange-700 flex items-center gap-1.5">
+                  <span>📈</span>
+                  <span>This matches the current market trend — <em>{currentTrend.title}</em></span>
+                </div>
+              )}
 
               {/* Combo quality + discovered history */}
               <div className={`text-[11px] px-2.5 py-1.5 rounded-lg mb-2 font-semibold ${formCombo>=1.4?"bg-green-50 text-green-700 border border-green-200":formCombo<=0.8?"bg-red-50 text-red-600 border border-red-200":"bg-gray-50 text-gray-500 border border-gray-100"}`}>
@@ -1316,6 +1505,32 @@ export default function GarageScene() {
                     </div>
                   )}
                   <div className="text-[10px] text-gray-600 text-center mt-2">70% revenue now · 30% over {salesTail?.weeksTotal??0} weeks</div>
+                </motion.div>
+
+                {/* TREND IMPACT */}
+                <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:0.95}}
+                  className={`rounded-2xl p-3 mb-3 border ${reviewResult.trendMatched?"bg-amber-950/40 border-amber-700":"bg-gray-900 border-gray-800"}`}>
+                  {reviewResult.trendMatched?(
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg leading-none mt-0.5">📈</span>
+                      <div>
+                        <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider mb-0.5">Matched market trend</div>
+                        <div className="text-[11px] text-amber-200 font-semibold">{reviewResult.trendName}</div>
+                        <div className="text-[10px] text-amber-400/80 mt-0.5">
+                          {reviewResult.trendRevenueBonus>0&&`+$${reviewResult.trendRevenueBonus.toLocaleString()} estimated sales boost`}
+                          {reviewResult.trendScoreBonus>0&&reviewResult.trendRevenueBonus>0&&" · "}
+                          {reviewResult.trendScoreBonus>0&&`+${reviewResult.trendScoreBonus.toFixed(1)} review bonus`}
+                        </div>
+                      </div>
+                    </div>
+                  ):(
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">📊</span>
+                      <div className="text-[10px] text-gray-500 font-semibold">
+                        {currentTrend?`No trend bonus — current trend: ${currentTrend.title}`:"No active market trend"}
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
 
                 {/* DIAGNOSIS PANEL — "Why this score?" */}

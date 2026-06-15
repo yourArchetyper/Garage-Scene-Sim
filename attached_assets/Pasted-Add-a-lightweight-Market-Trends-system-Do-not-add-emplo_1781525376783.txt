@@ -1,0 +1,239 @@
+Add a lightweight Market Trends system.
+
+Do not add employees, offices, publishers, burnout, save/load, contracts, research trees, or complex platform history.
+
+This pass is focused on early retention and replayability.
+
+Current prototype already has:
+
+* isometric garage
+* project creation
+* automatic development
+* design/tech/bug/research bubbles
+* release report
+* diagnosis panel
+* second-game targets
+* combo memory
+* upgrades
+* analytics
+
+Goal:
+Give the player a strategic reason to vary topic/genre/platform choices across multiple games without turning the game into a spreadsheet.
+
+Core idea:
+Every few in-game months, the market favors certain topics, genres, or platforms. These trends affect hype, sales, and review expectations.
+
+1. Add market trend state
+
+Add to state:
+
+state.market = {
+currentTrend: null,
+trendHistory: [],
+nextTrendWeek: 0
+};
+
+A trend should have:
+
+* id
+* type: "topic" | "genre" | "platform" | "combo"
+* target value or values
+* title
+* description
+* salesMultiplier
+* hypeBonus
+* reviewBonus
+* startsWeek
+* endsWeek
+
+Examples:
+
+* “Fantasy boom”
+
+  * type: topic
+  * target: Fantasy
+  * salesMultiplier: 1.25
+  * hypeBonus: +2 per week
+* “Arcade craze”
+
+  * type: platform
+  * target: Arcade Cabinet
+  * salesMultiplier: 1.35
+  * reviewBonus: +0.3
+* “Simulation games are trending”
+
+  * type: genre
+  * target: Simulation
+  * salesMultiplier: 1.2
+* “Space Action is hot”
+
+  * type: combo
+  * topic: Space
+  * genre: Action
+  * salesMultiplier: 1.45
+  * reviewBonus: +0.4
+
+2. Trend cadence
+
+Generate a new market trend every 12–20 in-game weeks.
+
+Each trend lasts 12–24 weeks.
+
+Do not stack many trends at once for now.
+Only one active trend at a time.
+
+When a new trend starts:
+
+* Show a small toast:
+  “Market Trend: Fantasy games are popular this season.”
+* Add a small temporary newspaper/news card in the scene for a few seconds.
+* Track analytics event: market_trend_started
+
+3. UI rules
+
+Do not add a market dashboard.
+
+Allowed:
+
+* Tiny market badge near the top-right objective pill
+* Example:
+  “Trend: Fantasy ↑”
+* In the New Project panel, show a small note next to matching cards:
+  “Trending”
+* In the release report, show whether the game matched the trend:
+  “Matched market trend: +25% sales”
+
+Do not add charts, tables, graphs, or a full market screen.
+
+4. New Project panel integration
+
+When choosing topic/genre/platform:
+
+* If a card matches the current trend, add a small “Trending” badge.
+* If the whole selected combo matches a combo trend, show:
+  “This matches the current market trend.”
+
+Do not force the player to follow trends.
+It should feel like a useful signal, not a requirement.
+
+5. Development effect
+
+If the current project matches the active trend:
+
+* Add small Hype bubbles occasionally during weekly ticks.
+* Increase project.hype slightly.
+* Show occasional toast:
+  “Players are talking about this genre.”
+
+Do not overdo it.
+No spam.
+
+6. Review and sales effect
+
+When releasing a game:
+
+* If topic/genre/platform/combo matches current trend:
+
+  * apply salesMultiplier
+  * apply small reviewBonus if configured
+  * add diagnosis factor:
+    “Matched current market trend”
+* If it does not match:
+
+  * no penalty by default
+
+Optional small penalty only if the trend is very specific:
+
+* Example: combo trend Space + Action does not punish unrelated games.
+* Avoid making the system feel unfair.
+
+7. Trend memory
+
+Add state.market.trendHistory.
+
+After each release, store:
+
+* game title
+* whether it matched trend
+* trend name
+* revenue impact
+* review impact
+
+In release report, show:
+
+* “Trend impact: +$620 estimated”
+  or:
+* “No trend bonus”
+
+8. Make trend useful for second and third game
+
+After first release:
+
+* If the player has not started second game yet, the next project panel should make the trend visible.
+* Objective pill can occasionally say:
+  “Try the current trend”
+  but only after the player already understands the basic loop.
+
+Do not replace the main objective with trend objective before first release.
+
+9. Analytics
+
+Track:
+
+* market_trend_started
+* market_trend_expired
+* trend_badge_seen
+* trend_matched_by_project
+* trend_ignored_by_project
+* trend_bonus_applied
+* trend_revenue_impact
+
+Update window.printSessionSummary() to include:
+
+* active trend
+* trends seen
+* games matching trend
+* average revenue of trend-matched games
+* whether player used trend after seeing it
+
+10. Balancing
+
+Trend bonuses should be noticeable but not dominant.
+
+Suggested limits:
+
+* salesMultiplier: 1.15–1.45
+* reviewBonus: 0.2–0.5 max
+* hypeBonus: 1–3 per week
+
+A bad game with many bugs should not become great just because it matches a trend.
+A good game matching a trend should feel commercially stronger.
+
+11. Preserve existing systems
+
+Do not break:
+
+* combo memory
+* diagnosis panel
+* upgrades
+* second-game target
+* bubbles
+* top-center project pill
+* release-ready state
+* analytics
+
+12. Deliverable
+
+Return the complete updated HTML file with embedded CSS and JS.
+It must run directly in browser.
+No external dependencies.
+No placeholder TODOs.
+No “next I can add...” summary instead of code.
+
+Success criteria:
+By the third game, the player should understand:
+
+* some markets are temporarily hot
+* choosing a trending topic/genre/platform can improve sales
+* trends create a reason to try different combinations
+* trends are helpful but not mandatory
