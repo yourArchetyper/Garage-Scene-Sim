@@ -33,7 +33,7 @@ args = "PORT=19618 BASE_PATH=/ pnpm --filter @workspace/garage-scene run dev"
 waitForPort = 19618
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]

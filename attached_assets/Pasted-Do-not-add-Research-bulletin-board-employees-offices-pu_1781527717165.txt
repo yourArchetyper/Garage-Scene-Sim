@@ -1,0 +1,170 @@
+Do not add Research bulletin board, employees, offices, publishers, burnout, save/load, contracts expansion, research trees, market forecast, or any new gameplay system.
+
+This pass is a stabilization and QA pass.
+
+Current issue:
+The implementation added the Global Studio Menu and Contract Work, but there are still TypeScript errors described as “pre-existing window cast lines.” Do not ignore them. The build must be clean before adding more mechanics.
+
+Goal:
+Make the current prototype technically clean, reliable, and playtestable.
+
+1. Fix all TypeScript errors
+
+Run the project typecheck/build command and fix every TypeScript error.
+
+Specifically inspect any code around:
+
+* window.printSessionSummary
+* window.resetGame
+* analytics debug helpers
+* global window assignments
+
+Use proper TypeScript declarations instead of unsafe casts where possible.
+
+Add:
+
+declare global {
+interface Window {
+printSessionSummary?: () => void;
+resetGame?: () => void;
+}
+}
+
+Or the equivalent correct pattern for this codebase.
+
+Success:
+
+* npm run build passes
+* npm run check passes if available
+* no TypeScript errors remain
+* no “pre-existing errors” are accepted
+
+2. Verify global menu click behavior
+
+Test:
+
+* clicking empty floor opens global studio menu
+* clicking computer does NOT open global menu
+* clicking shelf does NOT open global menu
+* clicking developer does NOT open global menu
+* clicking inside modals does NOT close or open global menu accidentally
+* Escape closes the menu
+* Arrow keys + Enter work
+* menu clamps inside viewport
+
+Fix any event propagation bugs with:
+
+* e.stopPropagation()
+* data-interactive markers
+* proper background-click detection
+
+3. Verify first-run activation
+
+Fresh reload test:
+
+* player sees computer CTA
+* player clicks computer
+* New Project opens directly
+* default project can start with one click
+* project develops automatically
+* bubbles appear
+* release-ready triggers once
+* release flow starts
+* reviews reveal
+* sales reveal week by week
+* final summary appears
+* objective changes to buy upgrade
+* player can buy upgrade
+* player can start second game
+
+4. Verify contract work does not break the core loop
+
+Contract Work must be optional.
+
+Test:
+
+* accepting contract while idle works
+* accepting contract while project active is either blocked or clearly explained
+* active contract indicator updates weekly
+* contract completion pays money once
+* contract completion does not interrupt release flow
+* contract completion does not break sales flow
+* contract completion does not spam toasts or analytics
+
+5. Verify Game History
+
+Test:
+
+* opens from global menu
+* opens from existing HUD/history button if present
+* empty state is readable before any games released
+* released games appear newest first
+* best score badge works
+* revenue/fans values are correct
+
+6. Fix analytics summary
+
+Update window.printSessionSummary() to include:
+
+* TypeScript-safe window function
+* global menu opened count
+* global menu item clicks
+* contract work opened
+* contract started
+* contract completed
+* game history opened
+* first project started
+* first game released
+* second project started
+* second game released
+* missed clicks before first project
+* did player finish release flow
+* did player buy upgrade before second game
+
+Make sure calling printSessionSummary() never crashes.
+
+7. Add QA console command
+
+Add:
+
+window.runSmokeTest = function() { ... }
+
+It should not play the whole game automatically, but it should print:
+
+* current state validity
+* whether required handlers exist
+* whether analytics exists
+* whether menu state exists
+* whether release flow state exists
+* whether no project/menu/release states conflict
+
+8. Preserve scope
+
+Do not add:
+
+* Research bulletin board
+* More contracts
+* Staff
+* Custom engine implementation
+* Publishing deal implementation
+* Office progression
+* Save/load
+* New trend systems
+* More dashboards
+
+Only stabilize what already exists.
+
+9. Deliverable
+
+Return the complete updated file/code.
+Also include a short QA checklist with:
+
+* build result
+* fixed TypeScript errors
+* global menu test result
+* first-loop test result
+* release-flow test result
+* contract test result
+
+Success criteria:
+The prototype should be clean enough that a new tester can play for 5–10 minutes without broken clicks, TypeScript errors, stuck modals, duplicate release events, or unclear first-run flow.
