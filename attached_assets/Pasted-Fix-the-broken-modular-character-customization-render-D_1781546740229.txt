@@ -1,0 +1,222 @@
+Fix the broken modular character customization render.
+
+Do not add new gameplay systems.
+Do not add save/load, employees, offices, publishers, custom engines, research trees, new contracts, or new market systems.
+
+Current problem:
+The character customization proof currently renders incorrectly. Only a hairpiece appears, surrounded by white/opaque square artifacts. The character does not appear as a complete layered person.
+
+This is an asset pipeline/rendering bug, not a gameplay feature.
+
+Goal:
+Make character customization either render correctly from aligned transparent layers, or hide it completely until the assets are production-ready.
+
+1. Disable broken customization by default
+
+Add:
+
+const SHOW_CHARACTER_CUSTOMIZATION = false;
+
+When false:
+
+* do not render the modular character composite
+* do not render the “Customize” button
+* do not render partial hair/body layers
+* keep the Level 1 scene clean
+
+Reason:
+A broken floating hairpiece is worse than no developer sprite.
+
+2. Fix transparency validation
+
+Inspect all character part assets.
+
+Reject any asset that has:
+
+* visible white background
+* visible checkerboard background
+* opaque square frame
+* mismatched canvas size
+* wrong crop/offset
+
+Add a helper or dev-only validation check that logs:
+
+* filename
+* width
+* height
+* whether alpha channel exists
+* whether corners are transparent
+* whether it matches required frame size
+
+Required frame size:
+512 x 512 px
+
+All modular parts must be 512x512 transparent PNGs.
+
+3. Do not crop parts to their visible bounds
+
+The current problem likely comes from slicing parts into small standalone images.
+
+For modular layering, every part must keep the same full transparent canvas.
+
+Correct:
+hair_brown_01.png       512x512
+hoodie_blue.png         512x512
+skin_light.png          512x512
+chair_black.png         512x512
+hands_light_typing.png  512x512
+
+Wrong:
+hair_brown_01.png       180x110
+hoodie_blue.png         240x190
+chair_black.png         300x220
+
+If parts have different dimensions, they will not align.
+
+4. Fix layer renderer
+
+The character composite should only render if all required layers exist and pass validation:
+
+required layers:
+
+* chair
+* skin/base
+* clothing
+* hands
+* hair
+
+If any required layer is missing or invalid:
+
+* do not render the composite
+* log a warning:
+  “Character customization disabled: missing/invalid layer <name>”
+
+Never render a partial floating hairpiece.
+
+5. Add a safe placeholder mode
+
+If valid layered assets are not available yet, render nothing.
+
+Do not create ugly placeholders.
+Do not show white boxes.
+Do not show partial layers.
+
+6. Keep manifest strict
+
+Update assets/character/manifest.json so every item includes:
+
+{
+"id": "hair_brown_01",
+"type": "hair",
+"file": "hair/hair_brown_01.png",
+"frame": {
+"width": 512,
+"height": 512
+}
+}
+
+The manifest should define:
+
+* frame width/height
+* layer order
+* defaults
+* items
+
+Layer order:
+
+1. chair
+
+2. skin
+
+3. clothing
+
+4. hands
+
+5. hair
+
+6. Add a development-only character debug command
+
+Add:
+
+window.validateCharacterAssets = function() { ... }
+
+It should print:
+
+* all character assets
+* dimensions
+* alpha/corner transparency status
+* missing files
+* invalid files
+* whether the character composite can safely render
+
+Do not show this in normal UI.
+
+8. Remove Customize button while broken
+
+The bottom-right “Customize” button should not appear until:
+
+SHOW_CHARACTER_CUSTOMIZATION === true
+and
+all required default layers are valid
+
+Do not expose broken customization to the player.
+
+9. Preserve the game
+
+Do not break:
+
+* Level 1 background
+* computer hitbox
+* project creation
+* development bubbles
+* review reveal
+* live sales
+* global menu
+* upgrades
+* contracts
+* market trends
+* playtest mode
+* printSessionSummary()
+* runSmokeTest()
+
+10. Typecheck
+
+Run:
+
+pnpm run typecheck
+
+Fix all errors.
+
+11. Manual QA
+
+Fresh reload:
+
+* no floating hairpiece
+* no white square artifact
+* no broken Customize button
+* Level 1 scene remains clean
+* computer click still works
+* project start still works
+* bubbles still work
+* release flow still works
+* live sales still works
+* End Playtest still works
+
+If valid character parts exist:
+
+* enable SHOW_CHARACTER_CUSTOMIZATION manually
+* verify full layered character appears
+* verify no white/opaque square backgrounds
+* verify all layers align
+
+12. Report
+
+When done, report:
+
+* whether customization was hidden by default
+* which assets failed validation
+* whether white/checkerboard backgrounds were found
+* whether all assets are 512x512
+* whether manifest was updated
+* typecheck result
+* manual QA result
