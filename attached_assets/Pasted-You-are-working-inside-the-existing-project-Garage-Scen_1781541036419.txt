@@ -1,0 +1,372 @@
+You are working inside the existing project:
+
+/Garage-Scene-Sim-main
+
+Goal:
+Refactor the current garage scene so that Level 1 uses a single cohesive isometric background asset as the whole room, instead of many separate garage/furniture PNG assets.
+
+Important:
+This is a visual/staging refactor only.
+Do not add new gameplay systems.
+Do not break the current game loop.
+
+Main rule:
+Use the new generated image as the complete Level 1 scene background.
+Other standalone garage furniture assets are no longer necessary for Level 1.
+
+The Level 1 background asset should be treated as:
+- the entire room,
+- the full visual layout,
+- the source of visual consistency.
+
+You may still keep UI overlays, invisible hitboxes, bubbles, tooltips, and existing gameplay panels.
+But do not keep the old “pasted together” furniture composition.
+
+========================================
+1. LEVEL 1 ASSET INTEGRATION
+========================================
+
+Use the new level image as the main Level 1 background asset.
+
+Expected location:
+- move/copy the generated image into:
+  /Garage-Scene-Sim-main/assets
+- use a clear filename such as:
+  level1_garage_base.png
+
+If another filename already exists, inspect the assets folder and use the actual filename.
+
+The Level 1 scene should render as one primary image:
+- floor
+- walls
+- workbench
+- shelf
+- covered car
+- computer desk
+- bulletin board
+- chalkboard
+- rug
+- all baked into one single base image
+
+Do not keep separate PNG furniture layers for:
+- bookshelf
+- coffee station
+- separate desk
+- separate shelf
+- separate storage
+- separate props
+unless absolutely required for some UI state later.
+
+For now:
+Level 1 = one complete room background image.
+
+========================================
+2. REMOVE CURRENT MISMATCHED PNG LAYERS
+========================================
+
+Remove or disable the standalone scene layers that were previously composed on top of each other and look inconsistent.
+
+Specifically remove the old separate visual layers for:
+- external bookshelf layer
+- standalone coffee station layer
+- separate storage / plant / poster layers
+- any extra prop PNG that is no longer needed because it is already baked into the new Level 1 image
+- any old SVG room/furniture visuals still hidden underneath
+
+Keep only:
+- the new single Level 1 base scene image
+- UI overlays
+- invisible interaction hitboxes
+- optional character layer only if needed later
+
+If the current player sprite no longer visually fits the new room, temporarily hide the player sprite rather than forcing a bad mismatch.
+
+========================================
+3. PRESERVE GAMEPLAY LOGIC
+========================================
+
+Do not rewrite the game systems.
+
+Preserve:
+- project creation
+- development loop
+- design / tech / bug / research / hype bubbles
+- release-ready logic
+- review reveal flow
+- active_on_market live sales
+- right-side live sales panel
+- global studio menu
+- upgrades/shop logic
+- contract work
+- market trends
+- playtest mode
+- printSessionSummary()
+- runSmokeTest()
+- analytics events
+- TypeScript correctness
+
+This is a scene refactor, not a gameplay refactor.
+
+========================================
+4. REBUILD INTERACTION USING INVISIBLE HITBOXES
+========================================
+
+Because the room is now a single baked background image, all interactions should be handled with invisible hitboxes.
+
+Create transparent positioned hitboxes for the important Level 1 regions:
+
+A. COMPUTER HITBOX
+Target region:
+- right-side computer desk with CRT computer and lamp
+
+This should remain the main primary interaction.
+Clicking it should:
+- open New Project / project actions
+- preserve hover affordance
+- preserve tutorial objective behavior
+
+B. UPGRADE / SHOP HITBOX
+Target region:
+- shelf / wall storage area or a suitable “upgrade” interaction point
+Prefer the shelving / workbench area on the left/mid-left wall.
+
+Clicking it should:
+- open upgrades/shop
+- preserve upgrade purchase logic
+
+C. DEVELOPER HITBOX
+If the player sprite is still shown:
+- create hitbox over the seated developer
+If not shown:
+- you may skip this or map “developer actions” to the computer/desk area for now
+
+Clicking should:
+- preserve rest/focus/developer-related interactions if they already exist
+
+D. GLOBAL MENU HITBOX
+Target region:
+- empty floor area
+- clicking empty floor should still open the global studio menu
+
+E. OPTIONAL FUTURE/LOCKED HITBOX
+Target region:
+- covered car
+This can be a locked/non-functional area for future use.
+If implemented, clicking it can show:
+- “Locked for future upgrade”
+or do nothing.
+Do not add a new system around it.
+
+Rules:
+- hitboxes must be forgiving
+- do not rely on PNG alpha transparency for clicks
+- use absolute-positioned div/button hitboxes
+- use e.stopPropagation() correctly
+- do not allow clicking computer to open the floor/global menu
+
+========================================
+5. SCENE LAYOUT / SCALING
+========================================
+
+Make the new Level 1 room the clear visual focus.
+
+The scene currently should:
+- occupy much more of the viewport than before
+- feel like the actual playable room
+- not sit too tiny inside a huge empty beige canvas
+
+Desktop target:
+- garage scene occupies around 60–75% of the available central visual area
+- enough room remains for:
+  - top-left HUD
+  - top-right objective/trend pills
+  - right-side live sales panel
+
+Center the scene cleanly.
+Avoid leaving excessive blank background space.
+
+Suggested approach:
+- render the scene inside a fixed ratio container
+- use max-width and viewport-relative scaling
+- keep aspect ratio correct
+- scale down responsively on small screens
+
+Example:
+- scene wrapper width around 900–1200px depending on viewport
+- transform scale only if needed
+- use transform-origin: center center
+
+========================================
+6. UPDATE VISUAL OVERLAYS TO MATCH NEW LEVEL
+========================================
+
+Reposition all overlays relative to the new room image.
+
+Update positions for:
+- tutorial hint / first-click hint
+- hover labels
+- monitor glow overlay
+- project progress strip
+- release-ready badge
+- design/tech/bug/research/hype bubble spawn anchors
+- any tooltip or interaction label
+
+Suggested anchors:
+- computer/tutorial hint: above the CRT desk on the right
+- design bubbles: near the computer desk
+- tech bubbles: near the computer/monitor
+- bug bubbles: near the computer area
+- research bubbles: near the shelf/workbench/chalkboard area
+- upgrade tooltip: near shelf/workbench area
+- release-ready badge: above the computer desk
+
+Do not leave old coordinates from the previous scene.
+
+========================================
+7. TUTORIAL / OBJECTIVE CLEANUP
+========================================
+
+Do not spam the scene with large tutorial overlays.
+
+Keep only:
+- the top-right objective pill
+- one subtle first-click hint near the computer if needed
+
+Remove:
+- duplicate hint layers
+- giant debug-style arrows
+- overlapping text labels
+
+Preferred first-time behavior:
+- objective pill: “Start your first game”
+- subtle amber glow around the computer region
+- one small tooltip near the computer desk:
+  “Click the computer”
+
+After first click:
+- hide that contextual hint
+
+========================================
+8. PLAYER / CHARACTER HANDLING
+========================================
+
+The new Level 1 image is a full background scene and may not include a separate sitting developer sprite that matches perfectly.
+
+For this pass:
+- prioritize scene consistency over forcing a mismatched character sprite
+
+Rules:
+- if the existing player sprite looks visually wrong in this room, hide it temporarily
+- keep all gameplay logic intact
+- if you hide it, still keep developer-related game actions accessible through the computer / desk interaction
+
+Optional:
+If one existing player sprite can be placed naturally near the computer desk without breaking perspective, you may keep it.
+But do not force it if it looks pasted on.
+
+The priority is:
+cohesive scene > extra character layer
+
+========================================
+9. LIVE SALES PANEL / UI
+========================================
+
+Keep the current right-side live sales panel and other UI systems.
+
+Do not turn the scene into a full dashboard.
+
+Keep:
+- top-left HUD
+- top-right objective pill
+- top-right trend pill
+- right-side live sales panel
+- playtest button
+
+But ensure they visually coexist with the new Level 1 scene.
+
+If needed:
+- nudge the scene slightly left/center
+- keep the live sales panel on the right
+- avoid overlap with the Level 1 room
+
+========================================
+10. UPGRADE VISUALS
+========================================
+
+Because Level 1 is now a single baked background, do not try to visually add upgrade props unless you already have a very clean method.
+
+For now:
+- preserve upgrade logic
+- preserve shop interaction
+- preserve stats/bonuses
+- optional visual changes can be deferred
+
+If there is already an existing clean overlay (for example a glow/pulse on the upgrade area after purchase), keep it.
+Do not paste mismatched upgrade furniture into the room.
+
+========================================
+11. FILE / CODE ORGANIZATION
+========================================
+
+Create a clean asset mapping for Level 1, for example:
+
+const levelAssets = {
+  level1Base: assetUrl("level1_garage_base.png"),
+};
+
+If the project uses Vite:
+- use new URL(..., import.meta.url) or the correct existing asset-loading pattern
+
+Do not hardcode brittle paths if the project already has a helper.
+
+Keep the scene rendering code clean:
+- one base image
+- a set of hitboxes
+- overlays
+- optional player layer
+- UI panels elsewhere
+
+========================================
+12. TYPECHECK + QA
+========================================
+
+Run:
+pnpm run typecheck
+
+Fix all errors.
+
+Manual QA checklist:
+1. Fresh reload
+2. Level 1 single background renders correctly
+3. No old pasted-together furniture remains
+4. Computer hitbox works
+5. Click computer → New Project flow works
+6. Empty floor click → global menu works
+7. Upgrade hitbox works
+8. Overlay positions make sense in the new room
+9. Bubbles spawn from sensible positions
+10. Live sales panel still works
+11. Review/release flow still works
+12. End Playtest still works
+13. printSessionSummary() works
+14. runSmokeTest() works
+
+========================================
+13. DELIVERABLE
+========================================
+
+Return updated code only after:
+- Level 1 uses the single base background image
+- old mismatched scene layers are removed
+- interaction hitboxes are rebuilt
+- overlays are repositioned
+- typecheck passes
+- manual QA passes
+
+Also report:
+- which old scene layers were removed
+- which file is used as the Level 1 base image
+- which hitboxes were created and their rough purpose
+- whether the player sprite was kept or hidden
+- typecheck result
+- manual QA result
