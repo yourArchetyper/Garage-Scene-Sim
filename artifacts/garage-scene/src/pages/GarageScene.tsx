@@ -1625,22 +1625,23 @@ export default function GarageScene() {
   // ── Monitor glow state ──
   const monitorGlowColor = readyToRelease
     ? "#22c55e"
-    : !working
-      ? (tutorialStep==="start" ? "#f59e0b" : null)
-      : bugCount>4 ? "#ef4444"
-      : focusMode==="crunch" ? "#ef4444"
-      : focusMode==="tech" ? "#3b82f6"
-      : focusMode==="design" ? "#f59e0b"
-      : "#3b82f6";
+    : bugCount>4 || focusMode==="crunch"
+      ? "#ef4444"
+    : working && focusMode==="tech"
+      ? "#3b82f6"
+    : working && focusMode==="design"
+      ? "#f59e0b"
+    : working
+      ? "#3b82f6"
+    : "#d97706";
 
   const monitorGlowCssClass = readyToRelease
     ? "monitor-release"
-    : !working
-      ? (tutorialStep==="start" ? "monitor-breath" : "")
-      : bugCount>4 ? "monitor-bug"
-      : focusMode==="crunch" ? "monitor-bug"
-      : working ? "monitor-flicker"
-      : "";
+    : bugCount>4 || focusMode==="crunch"
+      ? "monitor-bug"
+    : working
+      ? "monitor-flicker"
+    : "monitor-breath";
 
   // ── Objective pill ──
   const objectiveText = (()=>{
@@ -1698,10 +1699,16 @@ export default function GarageScene() {
         @keyframes releasePulse { 0%,100%{box-shadow:0 0 0 0 #22c55e55}50%{box-shadow:0 0 0 8px #22c55e00} }
         @keyframes pillFadeIn { from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)} }
         @keyframes hoverLabelIn { from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)} }
-        @keyframes monitorBreath { 0%,100%{opacity:0.10}50%{opacity:0.30} }
+        @keyframes monitorBreath { 0%,100%{opacity:0.08}50%{opacity:0.22} }
         @keyframes monitorFlicker { 0%{opacity:0.22}20%{opacity:0.08}40%{opacity:0.28}60%{opacity:0.06}80%{opacity:0.25}100%{opacity:0.22} }
         @keyframes monitorRelease { 0%,100%{opacity:0.14}50%{opacity:0.44} }
         @keyframes monitorBug { 0%{opacity:0.28}33%{opacity:0.10}66%{opacity:0.32}100%{opacity:0.28} }
+        @keyframes crtScan { 0%{transform:translateY(-100%)}100%{transform:translateY(100%)} }
+        .monitor-breath  { animation: monitorBreath  2.2s ease-in-out infinite; }
+        .monitor-flicker { animation: monitorFlicker 0.55s linear   infinite; }
+        .monitor-release { animation: monitorRelease 1.0s ease-in-out infinite; }
+        .monitor-bug     { animation: monitorBug     0.38s linear   infinite; }
+        .crt-scan        { animation: crtScan 3.8s linear infinite; }
         @keyframes liveDot { 0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.7)} }
         @keyframes latestBarPulse { 0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)} }
         @keyframes dustDrift {
@@ -1736,10 +1743,6 @@ export default function GarageScene() {
         .release-pulse { animation: releasePulse 1.2s ease-in-out infinite; }
         .pill-appear  { animation: pillFadeIn 0.3s ease-out both; }
         .hover-label  { animation: hoverLabelIn 0.15s ease-out both; }
-        .monitor-breath  { animation: monitorBreath  1.8s ease-in-out infinite; }
-        .monitor-flicker { animation: monitorFlicker 0.55s linear   infinite; }
-        .monitor-release { animation: monitorRelease 1.0s ease-in-out infinite; }
-        .monitor-bug     { animation: monitorBug     0.38s linear   infinite; }
         .live-dot     { animation: liveDot       1.1s ease-in-out infinite; }
         .latest-bar   { animation: latestBarPulse 1.1s ease-in-out infinite; }
         .dust-particle    { position:absolute; border-radius:50%; pointer-events:none;
@@ -1767,7 +1770,7 @@ export default function GarageScene() {
         @media (prefers-reduced-motion: reduce) {
           .dust-particle, .steam-wisp, .lamp-glow-div, .poster-wiggle,
           .monitor-breath, .monitor-flicker, .monitor-release, .monitor-bug,
-          .live-dot, .latest-bar, .shelf-upgrade-pulse, .bug-wiggle { animation: none !important; }
+          .live-dot, .latest-bar, .shelf-upgrade-pulse, .bug-wiggle, .crt-scan { animation: none !important; }
         }
       `}</style>
 
@@ -1805,6 +1808,25 @@ export default function GarageScene() {
               }}
             />
           )}
+
+          {/* ── CRT SCANLINE sweep (thin bright line scrolling over monitor) ── */}
+          <div style={{
+            position:"absolute",
+            left:"67%",
+            top:"34%",
+            width:"9%",
+            height:"10%",
+            overflow:"hidden",
+            pointerEvents:"none",
+            zIndex:7,
+            borderRadius:"4px",
+          }}>
+            <div className="crt-scan" style={{
+              width:"100%",
+              height:"30%",
+              background:"linear-gradient(to bottom, transparent 0%, rgba(180,220,255,0.12) 50%, transparent 100%)",
+            }}/>
+          </div>
 
           {/* ── LAMP WARM GLOW (desk lamp, right side ≈68%,32%) ── */}
           <div className="lamp-glow-div" style={{
@@ -1866,16 +1888,7 @@ export default function GarageScene() {
             }}/>
           ))}
 
-          {/* ── SHELF / UPGRADE OBJECTIVE PULSE (left shelf ≈10%,29%) ── */}
-          {objectiveText==="Buy an upgrade"&&(
-            <div className="shelf-upgrade-pulse" style={{
-              left:"10%",
-              top:"29%",
-              width:"20%",
-              height:"34%",
-              zIndex:11,
-            }}/>
-          )}
+          {/* shelf-upgrade-pulse intentionally removed — see task spec */}
 
           {/* ── DEVELOPER SPRITE — fixed anchor at computer desk (≈69%,49%) ── */}
           <div
@@ -1887,7 +1900,7 @@ export default function GarageScene() {
               src={developerSprite}
               alt="Developer"
               draggable={false}
-              style={{width:"100%",height:"auto",display:"block"}}
+              style={{width:"100%",height:"auto",display:"block",transform:"scaleX(-1)"}}
               initial={{opacity:0.88}}
               animate={{
                 opacity:1,
@@ -1952,22 +1965,10 @@ export default function GarageScene() {
           />
 
           <svg viewBox={`0 0 ${PNG_SCENE_WIDTH} ${PNG_SCENE_HEIGHT}`} className="absolute inset-0 h-full w-full pointer-events-none" preserveAspectRatio="none" style={{zIndex:20}}>
-            {tutorialStep==="start"&&(
-              <motion.ellipse cx={computerPos.x} cy={computerPos.y+45}
-                rx={missedClicks>=2?130:105} ry={missedClicks>=2?52:42}
-                fill="#f59e0b" opacity={0}
-                animate={{opacity:missedClicks>=2?[0,0.36,0]:[0,0.2,0]}}
-                transition={{repeat:Infinity,duration:missedClicks>=2?1.1:1.6}}/>
-            )}
             {readyToRelease&&(
               <motion.ellipse cx={computerPos.x} cy={computerPos.y+45} rx={110} ry={44}
                 fill="#22c55e" opacity={0}
-                animate={{opacity:[0,0.25,0]}} transition={{repeat:Infinity,duration:1.0}}/>
-            )}
-            {tutorialStep==="upgrade"&&(
-              <motion.ellipse cx={bookshelfPos.x} cy={bookshelfPos.y+150} rx={90} ry={150}
-                fill="#f59e0b" opacity={0}
-                animate={{opacity:[0,0.24,0]}} transition={{repeat:Infinity,duration:1.6}}/>
+                animate={{opacity:[0,0.22,0]}} transition={{repeat:Infinity,duration:1.0}}/>
             )}
             {focusMode==="rest"&&working&&(
               <motion.ellipse cx={charHead.x} cy={charHead.y+90} rx={75} ry={55}
@@ -2066,14 +2067,7 @@ export default function GarageScene() {
                   exit={{opacity:0}} transition={{duration:0.52,ease:"easeOut"}}/>
               )}
             </AnimatePresence>
-            {currentHint&&(
-              <motion.g animate={{opacity:[0.72,1,0.72],y:[0,-5,0]}} transition={{repeat:Infinity,duration:1.8}}>
-                <rect x={monitorPos.x-190} y={monitorPos.y-145} width={380} height={38} rx={19} fill="#f59e0b" opacity={0.94}/>
-                <text x={monitorPos.x} y={monitorPos.y-120} textAnchor="middle" fontSize="17" fontWeight="bold"
-                  fill="white" stroke="rgba(0,0,0,0.2)" strokeWidth="2" paintOrder="stroke">{currentHint}</text>
-                <polygon points={`${monitorPos.x},${monitorPos.y-65} ${monitorPos.x-12},${monitorPos.y-98} ${monitorPos.x+12},${monitorPos.y-98}`} fill="#f59e0b"/>
-              </motion.g>
-            )}
+            {/* currentHint bubble removed — discoverability via hover + objective pill */}
           </svg>
         </div>
       </div>

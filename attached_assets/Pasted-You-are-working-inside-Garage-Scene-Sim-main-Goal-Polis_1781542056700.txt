@@ -1,0 +1,296 @@
+You are working inside:
+
+/Garage-Scene-Sim-main
+
+Goal:
+Polish the Level 1 scene so it feels more natural and less over-explained.
+
+Main changes:
+1. Make the developer visually face the computer.
+2. Make the computer feel active/alive.
+3. Remove the large purple upgrade highlight overlay.
+4. Remove the orange in-scene “Click the computer” hint bubble.
+5. Keep interaction discoverability through the contextual click/menu system, hover affordance, and existing top-right objective pill only.
+
+Important:
+Do not add new gameplay systems.
+Do not break existing gameplay logic.
+
+Do not add:
+- save/load
+- employees
+- offices
+- publishers
+- custom engines
+- research trees
+- new contracts
+- extra tutorial systems
+- more overlay hints
+
+This is a visual/game-feel cleanup pass only.
+
+==================================================
+1. REMOVE UNNECESSARY SCENE OVERLAYS
+==================================================
+
+Current problem:
+The scene has:
+- a large purple translucent highlight on the upgrade area
+- a large orange “Click the computer” scene bubble
+
+These overlays are too intrusive and make the scene feel like a debug/tutorial mockup.
+
+Required changes:
+- remove the purple upgrade area overlay completely
+- remove the orange local scene hint bubble completely
+- do not replace them with another giant overlay
+
+Keep only:
+- the existing top-right objective pill
+- hover labels on interactive hitboxes
+- contextual/global click menu
+- subtle hover glows if needed
+
+If there is a specific local hint component, disable it.
+If there is a specific purple overlay div/class, remove it or gate it behind a disabled flag.
+
+==================================================
+2. KEEP DISCOVERABILITY WITHOUT BIG HINTS
+==================================================
+
+The player should still understand interaction using:
+- hover labels
+- cursor pointer
+- subtle hover glow
+- contextual click behavior
+- top-right objective pill
+
+Rules:
+- computer hover label: "Computer"
+- upgrade hover label: "Upgrades"
+- no giant in-scene speech bubbles
+- no giant translucent target zones visible in normal play
+
+If needed:
+- keep invisible hitboxes
+- keep subtle outline/glow on hover only
+- keep command/floor click menu behavior
+
+==================================================
+3. MAKE THE DEVELOPER FACE THE COMPUTER
+==================================================
+
+Current problem:
+The developer does not feel properly oriented toward the PC.
+He looks too front-facing / detached from the desk.
+
+Goal:
+The seated developer should visually feel like he is sitting at and facing the right-side computer desk.
+
+Required approach:
+- inspect current developer sprite(s)
+- if a sprite can be rotated/flipped or repositioned to better face the computer, do that
+- if horizontal flipping improves the fit, apply it
+- if current sprite orientation fundamentally does not fit, prefer one of:
+  A. choose the best available developer sprite that visually fits
+  B. hide the developer temporarily and report that a dedicated “facing computer” sprite is needed
+  C. slightly reposition and scale the sprite to make the seated pose align more naturally with the chair/desk
+
+Important:
+Do not force a terrible mismatch.
+Cohesion is more important than keeping a bad sprite visible.
+
+Implementation notes:
+- keep a stable anchor wrapper for the developer
+- all state sprites should use the same anchor
+- ensure typing/tired/worried/celebrating states do not jump around due to different dimensions
+
+Suggested pattern:
+
+<div className="developer-anchor">
+  <img className="developer-sprite" src={currentDeveloperSprite} alt="" />
+</div>
+
+Tune position/scale until the developer appears seated at the desk, facing the CRT computer.
+
+If necessary:
+- use transform: scaleX(-1) only if it visually improves orientation
+- adjust left/top/width in small increments
+- preserve z-index so the developer sits naturally in front of the desk/chair area
+
+==================================================
+4. MAKE THE COMPUTER FEEL ACTIVE / ALIVE
+==================================================
+
+The computer should feel like the core interactive object.
+
+Add or improve visual activity:
+
+A. IDLE STATE
+Before project start:
+- subtle monitor glow
+- faint screen flicker
+- gentle desk lamp glow
+- small breathing pulse around the monitor area
+
+B. ACTIVE DEVELOPMENT
+When a project is in development:
+- stronger monitor flicker
+- screen brightness variation
+- very subtle scanline or CRT glow effect
+- keyboard/desk area can feel slightly more alive
+- if typing animation exists, it should synchronize visually with active work
+
+C. HIGH BUGS / CRUNCH
+If bugs are high or crunch is active:
+- red/orange warning flicker on the screen area
+- still subtle, not obnoxious
+
+D. RELEASE READY
+When release is ready:
+- green pulse around monitor
+- this replaces any need for large orange hint bubbles
+
+Implementation:
+Use lightweight CSS overlays positioned on the CRT monitor area.
+Do not edit the PNG directly.
+Use a small absolutely-positioned overlay div:
+- monitor-glow
+- monitor-flicker
+- optional scanline effect
+
+Example states:
+- idle
+- working-design
+- working-tech
+- warning
+- ready
+
+Map them from existing game state.
+
+==================================================
+5. KEEP THE COMMAND/CLICK MENU AS PRIMARY GUIDANCE
+==================================================
+
+The user explicitly wants the command click menu to be enough.
+
+So:
+- preserve click-on-floor / contextual global menu behavior
+- preserve click-on-computer behavior
+- preserve click-on-upgrade-area behavior
+- preserve keyboard menu navigation if already implemented
+
+But remove the feeling that the scene is shouting instructions.
+
+The scene should guide by:
+- object placement
+- hover states
+- subtle glows
+- menus
+- objective pill
+
+Not by giant overlays.
+
+==================================================
+6. CLEAN UP UPGRADE AREA VISUALS
+==================================================
+
+Current problem:
+The upgrade area has a big purple overlay that looks artificial.
+
+Required:
+- remove the persistent purple translucent area entirely
+- on hover only, you may show:
+  - subtle outline
+  - subtle glow
+  - small label "Upgrades"
+- the upgrade area should look like part of the room, not a highlighted debug zone
+
+Do not show any always-visible colored wash over the shelf area.
+
+==================================================
+7. PRESERVE HITBOXES, BUT MAKE THEM INVISIBLE
+==================================================
+
+Do not rely on image alpha for clicking.
+
+Keep invisible hitboxes for:
+- computer
+- upgrades
+- floor/global menu
+- optional developer
+
+Rules:
+- no visible background tint in normal mode
+- only hover affordance should appear when mouse is over the hitbox
+- use DEBUG_HITBOXES = false in normal mode
+- if a debug mode exists, leave it off by default
+
+==================================================
+8. PRESERVE CURRENT SYSTEMS
+==================================================
+
+Do not break:
+- Level 1 base background
+- project creation
+- development loop
+- design/tech/bug/research/hype bubbles
+- release-ready logic
+- review reveal
+- active_on_market sales
+- live sales panel
+- global studio menu
+- upgrades logic
+- market trends
+- contracts
+- playtest mode
+- printSessionSummary()
+- runSmokeTest()
+- TypeScript correctness
+
+==================================================
+9. TYPECHECK + QA
+==================================================
+
+Run:
+pnpm run typecheck
+
+Fix all errors.
+
+Manual QA checklist:
+1. Fresh reload
+2. Purple upgrade overlay is gone
+3. Orange “Click the computer” scene bubble is gone
+4. Top-right objective pill still exists
+5. Hovering computer shows subtle affordance only
+6. Hovering upgrades shows subtle affordance only
+7. Clicking computer still opens project actions / New Project
+8. Clicking floor still opens global menu
+9. Developer looks naturally oriented toward the computer, or is hidden if impossible
+10. Computer monitor feels alive/active
+11. Development state makes the computer feel like it is doing work
+12. Release-ready state still reads clearly
+13. Live sales panel still works
+14. End Playtest still works
+15. printSessionSummary() works
+16. runSmokeTest() works
+
+==================================================
+10. DELIVERABLE
+==================================================
+
+Return updated code only after:
+- purple overlay is removed
+- orange local hint bubble is removed
+- developer is better aligned/facing the computer, or hidden if the sprite truly does not fit
+- computer activity effects are improved
+- typecheck passes
+- manual QA passes
+
+Also report:
+- whether the developer sprite was flipped/repositioned or hidden
+- final developer anchor position values
+- what computer activity effects were added
+- which overlay/hint elements were removed
+- typecheck result
+- manual QA result
