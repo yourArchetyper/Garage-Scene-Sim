@@ -26,6 +26,9 @@ declare global {
 
 const PLAYTEST_MODE = true;
 const DEBUG_HITBOXES = false;
+// Disabled: current front-facing seated sprites do not match the Level 1 CRT desk perspective.
+// Enable once dedicated side-facing sprites are available.
+const SHOW_DEVELOPER_SPRITE = false;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: ANALYTICS
@@ -1892,30 +1895,42 @@ export default function GarageScene() {
 
           {/* shelf-upgrade-pulse intentionally removed — see task spec */}
 
-          {/* ── DEVELOPER SPRITE — fixed anchor at computer desk (≈69%,49%) ── */}
-          <div
-            className="developer-anchor"
-            style={{left:`${devLeft}%`,top:`${devTop}%`,width:`${devWidth}%`}}
-          >
-            <motion.img
-              key={developerSprite}
-              src={developerSprite}
-              alt="Developer"
-              draggable={false}
-              style={{width:"100%",height:"auto",display:"block"}}
-              initial={{opacity:0.88}}
-              animate={{
-                opacity:1,
-                y:celebrating?[0,-10,0,-6,0]:working&&developerSpriteState==="working"?[0,-2,0]:[0,-1.5,0],
-              }}
-              transition={{
-                duration:celebrating?0.55:working?0.42:3.2,
-                repeat:Infinity,
-                ease:"easeInOut",
-                repeatType:"mirror",
-              }}
-            />
-          </div>
+          {/* ── DEVELOPER SPRITE ─────────────────────────────────────────────
+               TODO: Add dedicated side-facing developer sprites drawn for the Level 1 CRT desk.
+               Required states:
+                 developer_pc_idle.png
+                 developer_pc_typing_1.png
+                 developer_pc_typing_2.png
+                 developer_pc_tired.png
+                 developer_pc_worried.png
+                 developer_pc_celebrate.png
+               Current front-facing seated sprites are disabled because they do not match the room perspective.
+          ─────────────────────────────────────────────────────────────────── */}
+          {SHOW_DEVELOPER_SPRITE&&(
+            <div
+              className="developer-anchor"
+              style={{left:`${devLeft}%`,top:`${devTop}%`,width:`${devWidth}%`}}
+            >
+              <motion.img
+                key={developerSprite}
+                src={developerSprite}
+                alt="Developer"
+                draggable={false}
+                style={{width:"100%",height:"auto",display:"block"}}
+                initial={{opacity:0.88}}
+                animate={{
+                  opacity:1,
+                  y:celebrating?[0,-10,0,-6,0]:working&&developerSpriteState==="working"?[0,-2,0]:[0,-1.5,0],
+                }}
+                transition={{
+                  duration:celebrating?0.55:working?0.42:3.2,
+                  repeat:Infinity,
+                  ease:"easeInOut",
+                  repeatType:"mirror",
+                }}
+              />
+            </div>
+          )}
 
           {/* ── INTERACTION HITBOXES ── */}
 
@@ -1946,15 +1961,17 @@ export default function GarageScene() {
             onMouseEnter={()=>onObjectHover("desk")}
             onClick={(e)=>e.stopPropagation()}
           />
-          {/* D. DEVELOPER — at computer desk (65%,44% 20×30%) */}
-          <button
-            className="scene-hitbox"
-            data-interactive="developer"
-            aria-label="Developer"
-            style={sceneHitboxStyle(65,44,20,30)}
-            onMouseEnter={()=>onObjectHover("char")}
-            onClick={(e)=>e.stopPropagation()}
-          />
+          {/* D. DEVELOPER — only shown when sprite is enabled */}
+          {SHOW_DEVELOPER_SPRITE&&(
+            <button
+              className="scene-hitbox"
+              data-interactive="developer"
+              aria-label="Developer"
+              style={sceneHitboxStyle(65,44,20,30)}
+              onMouseEnter={()=>onObjectHover("char")}
+              onClick={(e)=>e.stopPropagation()}
+            />
+          )}
           {/* E. COVERED CAR — locked future area (25%,52% 35×26%) */}
           <button
             className="scene-hitbox"
@@ -2036,7 +2053,7 @@ export default function GarageScene() {
                 <text x={bookshelfPos.x} y={bookshelfPos.y-30} textAnchor="middle" fontSize="12" fontWeight="600" fill="white">Upgrades</text>
               </g>
             )}
-            {hoveredObject==="char"&&(
+            {SHOW_DEVELOPER_SPRITE&&hoveredObject==="char"&&(
               <g className="hover-label">
                 <rect x={charHead.x-44} y={charHead.y-74} width={88} height={22} rx={11} fill="#111827" opacity={0.82}/>
                 <text x={charHead.x} y={charHead.y-58} textAnchor="middle" fontSize="12" fontWeight="600" fill="white">Developer</text>

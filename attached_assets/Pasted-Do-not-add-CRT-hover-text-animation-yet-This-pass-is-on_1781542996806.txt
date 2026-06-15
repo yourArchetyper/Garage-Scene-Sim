@@ -1,0 +1,147 @@
+Do not add CRT hover text animation yet.
+
+This pass is only about fixing the developer sprite staging.
+
+Current status:
+
+* The purple upgrade overlay is removed.
+* The large orange tutorial bubble is removed.
+* Level 1 background is coherent.
+* The computer has subtle monitor activity.
+* The remaining visual problem is the developer sprite.
+
+Problem:
+The current developer sprite is a front-facing seated character. It does not naturally look like he is sitting at the CRT computer desk or typing. Repositioning and CSS flipping are not enough.
+
+Goal:
+Do not force a bad character sprite into the scene.
+
+Implement this logic:
+
+1. Add a feature flag
+
+const SHOW_DEVELOPER_SPRITE = false;
+
+Default it to false for now.
+
+Reason:
+The current developer sprite does not fit the Level 1 scene perspective. A coherent empty workstation is better than a pasted-on mismatched character.
+
+2. Hide the current developer sprite when flag is false
+
+When SHOW_DEVELOPER_SPRITE === false:
+
+* do not render the developer image
+* do not render developer-specific hover label
+* do not render developer-specific visible sprite animations
+* keep all gameplay logic unchanged
+
+3. Preserve developer-related gameplay
+
+Do not remove:
+
+* energy
+* rest action logic
+* focus logic
+* character state logic
+* analytics
+* bubbles
+* review reactions
+* sales reactions
+
+If the developer sprite is hidden:
+
+* route developer/rest/focus actions through the computer or desk contextual panel
+* keep the same state internally
+
+4. Make the computer/desk visually represent work
+
+Since the developer sprite is hidden temporarily, make the desk/computer carry the “work is happening” feedback:
+
+During active project:
+
+* monitor flicker becomes stronger
+* keyboard/desk area gets subtle activity glow
+* design/tech/bug bubbles spawn near the CRT/desk
+* project progress strip stays near computer
+* release-ready pulse remains on monitor
+
+During idle:
+
+* monitor has subtle amber breathing glow
+
+During bad review/sales:
+
+* monitor briefly shows worried/red flicker
+
+During good review/sales:
+
+* monitor briefly shows celebratory green/gold pulse
+
+5. Add clear TODO comment
+
+Near the developer asset mapping, add:
+
+// TODO: Add dedicated side-facing developer sprites drawn for the Level 1 CRT desk.
+// Required states:
+// developer_pc_idle.png
+// developer_pc_typing_1.png
+// developer_pc_typing_2.png
+// developer_pc_tired.png
+// developer_pc_worried.png
+// developer_pc_celebrate.png
+// Current front-facing seated sprites are disabled because they do not match the room perspective.
+
+6. Keep optional future support
+
+Keep the existing developer anchor/state code if useful, but gate rendering behind SHOW_DEVELOPER_SPRITE.
+
+Do not delete all developer logic.
+Only hide the mismatched visual layer.
+
+7. Preserve current systems
+
+Do not break:
+
+* project creation
+* development loop
+* bubbles
+* review reveal
+* live sales
+* global menu
+* upgrades
+* contracts
+* market trends
+* playtest mode
+* printSessionSummary()
+* runSmokeTest()
+
+8. QA
+
+Run:
+pnpm run typecheck
+
+Manual QA:
+
+* fresh reload
+* developer sprite is hidden
+* scene looks more coherent without pasted-on character
+* computer remains clearly interactive
+* click computer works
+* start project works
+* development bubbles spawn near computer/desk
+* monitor activity makes work feel visible
+* release-ready still works
+* review flow still works
+* live sales still works
+* End Playtest still works
+
+9. Report
+
+When done, report:
+
+* whether SHOW_DEVELOPER_SPRITE was added
+* whether developer sprite is hidden by default
+* what visual feedback now represents active work
+* typecheck result
+* manual QA result
