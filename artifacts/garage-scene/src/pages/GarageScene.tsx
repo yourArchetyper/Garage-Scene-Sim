@@ -12,6 +12,8 @@ const analytics = {
     clickedComputer: false, openedNewProject: false, startedFirstProject: false,
     reachedReleaseReady: false, releasedFirstGame: false, viewedReviewReport: false,
     earnedMoney: false, boughtUpgrade: false, startedSecondProject: false,
+    firstGameCompleted: false, secondGameReleased: false,
+    beatPreviousScore: false, beatPreviousRevenue: false, usedUpgradeBeforeSecond: false,
   },
   firstComputerClick: null as number | null,
   firstProjectStart: null as number | null,
@@ -20,17 +22,24 @@ const analytics = {
   panelsOpened: 0,
   actionsUsed: 0,
   bubblesSpawned: 0,
+  bestScore: 0,
+  bestRevenue: 0,
+  totalGamesReleased: 0,
 };
 
 function track(eventName: string, data: Record<string, unknown> = {}) {
-  // Throttle high-freq events
   if (eventName === "point_bubble_spawned") { analytics.bubblesSpawned++; return; }
   analytics.events.push({ event: eventName, timestamp: Date.now(), data });
-  const flagMap: Record<string, keyof typeof analytics.flags> = {
+  type FlagKey = keyof typeof analytics.flags;
+  const flagMap: Record<string, FlagKey> = {
     computer_clicked:"clickedComputer", new_project_opened:"openedNewProject",
     project_started:"startedFirstProject", release_ready:"reachedReleaseReady",
     game_released:"releasedFirstGame", review_report_viewed:"viewedReviewReport",
-    sales_tick:"earnedMoney", upgrade_bought:"boughtUpgrade", second_project_started:"startedSecondProject",
+    sales_tick:"earnedMoney", upgrade_bought:"boughtUpgrade",
+    second_project_started:"startedSecondProject",
+    first_game_completed:"firstGameCompleted", second_game_released:"secondGameReleased",
+    beat_previous_score:"beatPreviousScore", beat_previous_revenue:"beatPreviousRevenue",
+    upgrade_bonus_used:"usedUpgradeBeforeSecond",
   };
   if (flagMap[eventName]) analytics.flags[flagMap[eventName]] = true;
   console.log("[analytics]", eventName, data);
@@ -63,7 +72,7 @@ type Genre    = typeof GENRES[number];
 type Platform = typeof PLATFORMS[number];
 type FocusMode = "design"|"tech"|"fixBugs"|"crunch"|"rest"|"research"|null;
 type Phase     = "idle"|"developing"|"releasing";
-type TutorialStep = "start"|"pick"|"develop"|"release"|"upgrade"|"second"|"done";
+type TutorialStep = "start"|"pick"|"develop"|"release"|"upgrade"|"second"|"beat"|"done";
 
 const TOPIC_MOD: Record<Topic,{d:number;t:number}> = {
   Fantasy:{d:1.2,t:0.9},Space:{d:1.0,t:1.3},Racing:{d:1.1,t:1.1},
@@ -87,10 +96,10 @@ const COMBO: Record<Genre,Partial<Record<Topic,number>>> = {
   Adventure:{Detective:1.5,Fantasy:1.4,Medieval:1.3,Horror:1.3,Space:1.1,Racing:0.8,Business:0.8},
 };
 const UPGRADE_DEFS = [
-  {id:"betterPC",    name:"Faster PC",   cost:350,desc:"+20% tech generation",  mechanic:"techGen"},
-  {id:"coffeemaker", name:"Coffee Maker",cost:150,desc:"-25% energy loss/week", mechanic:"energy"},
-  {id:"books",       name:"Prog. Books", cost:250,desc:"+15% design generation",mechanic:"designGen"},
-  {id:"whiteboard",  name:"Whiteboard",  cost:400,desc:"-20% bug generation",   mechanic:"bugs"},
+  {id:"betterPC",    name:"Faster PC",   cost:350,desc:"+20% tech generation",  nextGame:"Your next game will generate more Tech."},
+  {id:"coffeemaker", name:"Coffee Maker",cost:150,desc:"-25% energy loss/week", nextGame:"Your developer loses less energy during work."},
+  {id:"books",       name:"Prog. Books", cost:250,desc:"+15% design generation",nextGame:"Your next game will generate more Design."},
+  {id:"whiteboard",  name:"Whiteboard",  cost:400,desc:"-20% bug generation",   nextGame:"Your next game should produce fewer bugs."},
 ] as const;
 const REVIEW_OUTLETS = [
   {name:"Byte Magazine",      bias: 0.4},
@@ -113,6 +122,13 @@ const EVENTS = [
   {text:"Computer Weekly gave you a mention!",   fans:60, cash:0,   prog:0,  bugFix:false},
 ];
 
+function comboLabel(score: number): string {
+  if (score >= 1.4) return "Great Match";
+  if (score >= 1.1) return "Good Match";
+  if (score >= 0.9) return "Weak Match";
+  return "Bad Match";
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: TYPES
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -122,7 +138,10 @@ interface Reviewer { outlet:string;score:number;blurb:string; }
 interface ReviewResult { gameName:string;score:number;reviewers:Reviewer[];unitsSold:number;revenue:number;fansGained:number; }
 interface SalesTail { gameName:string;score:number;weeksLeft:number;weeksTotal:number;baseRevenue:number;baseFans:number; }
 interface Bubble { id:number;text:string;color:string;svgX:number;svgY:number;born:number; }
-interface ReleasedGame { name:string;score:number;revenue:number;fansGained:number;year:number;week:number; }
+interface ReleasedGame { name:string;score:number;revenue:number;fansGained:number;bugs:number;year:number;week:number;topic:Topic;genre:Genre;platform:Platform; }
+interface DiscoveredCombo { topic:Topic;genre:Genre;platform:Platform;score:number;label:string; }
+interface DiagFactor { icon:string;text:string;sentiment:"pos"|"neu"|"neg"; }
+interface NextTarget { text:string;type:string; }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: ISO HELPERS
@@ -137,7 +156,7 @@ function P({p,fill,stroke="rgba(0,0,0,0.1)",sw=1,onClick,cursor}:{p:number[][];f
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SECTION: REVIEW
+// SECTION: HELPERS
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function generateReview(project:Project, upgrades:Set<string>): ReviewResult {
@@ -163,6 +182,70 @@ function generateReview(project:Project, upgrades:Set<string>): ReviewResult {
   return{gameName:project.name,score:rounded,reviewers,unitsSold:baseSales,revenue,fansGained};
 }
 
+function buildDiagnosis(project:Project, result:ReviewResult, upgrades:Set<string>): DiagFactor[] {
+  const factors: DiagFactor[] = [];
+  const combo = COMBO[project.genre]?.[project.topic] ?? 1.0;
+  const effectiveBugs = upgrades.has("whiteboard") ? project.bugs*0.8 : project.bugs;
+  const pm = PLATFORM_MOD[project.platform];
+  const gm = GENRE_MOD[project.genre];
+  const designAdj = project.design * gm.dw;
+  const techAdj   = project.tech  * gm.tw;
+
+  // Combo quality
+  if (combo >= 1.4)      factors.push({icon:"✓",text:`Strong combo: ${project.topic} + ${project.genre} work great together`,sentiment:"pos"});
+  else if (combo <= 0.8) factors.push({icon:"✗",text:`Weak combo: ${project.topic} and ${project.genre} clash — try different genres`,sentiment:"neg"});
+  else                   factors.push({icon:"○",text:`Decent combo: ${project.topic} + ${project.genre} is fine but not ideal`,sentiment:"neu"});
+
+  // Bugs
+  if (effectiveBugs > 15)     factors.push({icon:"🐛",text:`${Math.floor(effectiveBugs)} bugs hurt the score badly — use Fix Bugs or get a Whiteboard`,sentiment:"neg"});
+  else if (effectiveBugs > 5) factors.push({icon:"🐛",text:`${Math.floor(effectiveBugs)} bugs pulled reviews down a little`,sentiment:"neg"});
+  else                        factors.push({icon:"✓",text:"Clean release — bugs were well managed",sentiment:"pos"});
+
+  // Platform tech requirement
+  if (pm.techReq > 0 && project.tech < pm.techReq) {
+    factors.push({icon:"⚠",text:`Tech too low for ${project.platform} (needed ${pm.techReq}+, had ${Math.floor(project.tech)}) — hurt sales`,sentiment:"neg"});
+  } else if (pm.techReq > 0) {
+    factors.push({icon:"✓",text:`Met tech requirements for ${project.platform}`,sentiment:"pos"});
+  }
+
+  // Design/Tech balance
+  const totalPoints = designAdj + techAdj;
+  if (totalPoints > 0) {
+    const dRatio = designAdj / totalPoints;
+    if (dRatio > 0.72)      factors.push({icon:"⚠",text:"Very design-heavy — spending more time on Tech would help balance",sentiment:"neg"});
+    else if (dRatio < 0.28) factors.push({icon:"⚠",text:"Very tech-heavy — spending more time on Design would help balance",sentiment:"neg"});
+    else                    factors.push({icon:"✓",text:"Good balance between Design and Tech points",sentiment:"pos"});
+  }
+
+  // Research
+  if ((project.research??0) >= 10) factors.push({icon:"🔬",text:`Research bonus boosted quality (${Math.floor(project.research)} research pts)`,sentiment:"pos"});
+
+  // Score context
+  if (result.score >= 8)      factors.push({icon:"⭐",text:"Outstanding quality — players loved it",sentiment:"pos"});
+  else if (result.score < 4)  factors.push({icon:"↓",text:"Low score — a stronger combo and fewer bugs can turn this around",sentiment:"neg"});
+
+  return factors.slice(0, 5);
+}
+
+function buildNextTarget(result:ReviewResult, history:ReleasedGame[], fans:number): NextTarget {
+  const targets: NextTarget[] = [
+    {text:`Beat score ${result.score}`,type:"score"},
+    {text:`Earn more than $${result.revenue.toLocaleString()}`,type:"revenue"},
+  ];
+  if (result.score < 7)   targets.push({text:"Release with fewer than 5 bugs",type:"bugs"});
+  if (fans < 100)         targets.push({text:"Reach 100 fans",type:"fans"});
+  if (history.length >= 2)targets.push({text:`Earn $${(Math.ceil((Math.max(...history.map(g=>g.revenue))*1.5)/100)*100).toLocaleString()} total revenue`,type:"totalrev"});
+  // Pick a varied target — not always score
+  const idx = history.length % targets.length;
+  return targets[idx];
+}
+
+function scoreRecommendation(score:number): {text:string;color:string} {
+  if (score >= 7.5) return {text:"Strong release. Try beating this score with a bigger platform or fewer bugs.",color:"text-green-400"};
+  if (score >= 5)   return {text:"Good start. Improve balance and reduce bugs to score higher next time.",color:"text-amber-400"};
+  return {text:"Try a stronger topic/genre combo and fix bugs before releasing next time.",color:"text-red-400"};
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -170,66 +253,72 @@ function generateReview(project:Project, upgrades:Set<string>): ReviewResult {
 export default function GarageScene() {
 
   // ── Core state ──
-  const [week,setWeek]=useState(1);
-  const [year,setYear]=useState(1);
-  const [cash,setCash]=useState(2000);
-  const [fans,setFans]=useState(0);
-  const [energy,setEnergy]=useState(100);
-  const [phase,setPhase]=useState<Phase>("idle");
-  const [project,setProject]=useState<Project|null>(null);
-  const [focusMode,setFocusMode]=useState<FocusMode>(null);
-  const [upgrades,setUpgrades]=useState<Set<string>>(new Set());
-  const [history,setHistory]=useState<ReleasedGame[]>([]);
-  const [salesTail,setSalesTail]=useState<SalesTail|null>(null);
-  const [bubbles,setBubbles]=useState<Bubble[]>([]);
-  const [reviewResult,setReviewResult]=useState<ReviewResult|null>(null);
-  const [toast,setToast]=useState<string|null>(null);
-  const [celebrating,setCelebrating]=useState(false);
+  const [week,setWeek]           = useState(1);
+  const [year,setYear]           = useState(1);
+  const [cash,setCash]           = useState(2000);
+  const [fans,setFans]           = useState(0);
+  const [energy,setEnergy]       = useState(100);
+  const [phase,setPhase]         = useState<Phase>("idle");
+  const [project,setProject]     = useState<Project|null>(null);
+  const [focusMode,setFocusMode] = useState<FocusMode>(null);
+  const [upgrades,setUpgrades]   = useState<Set<string>>(new Set());
+  const [history,setHistory]     = useState<ReleasedGame[]>([]);
+  const [salesTail,setSalesTail] = useState<SalesTail|null>(null);
+  const [bubbles,setBubbles]     = useState<Bubble[]>([]);
+  const [reviewResult,setReviewResult] = useState<ReviewResult|null>(null);
+  const [diagnosis,setDiagnosis] = useState<DiagFactor[]>([]);
+  const [nextTarget,setNextTarget] = useState<NextTarget|null>(null);
+  const [discoveredCombos,setDiscoveredCombos] = useState<DiscoveredCombo[]>([]);
+  const [lastBuyMessage,setLastBuyMessage] = useState<string|null>(null);
+  const [toast,setToast]         = useState<string|null>(null);
+  const [celebrating,setCelebrating] = useState(false);
 
   // ── UI panels ──
-  const [showNewGame,setShowNewGame]=useState(false);
-  const [showComputer,setShowComputer]=useState(false);
-  const [showShop,setShowShop]=useState(false);
-  const [showHistory,setShowHistory]=useState(false);
+  const [showNewGame,setShowNewGame]   = useState(false);
+  const [showComputer,setShowComputer] = useState(false);
+  const [showShop,setShowShop]         = useState(false);
+  const [showHistory,setShowHistory]   = useState(false);
 
   // ── Form ──
-  const [formName,setFormName]=useState(makeTitle);
-  const [formTopic,setFormTopic]=useState<Topic>("Fantasy");
-  const [formGenre,setFormGenre]=useState<Genre>("RPG");
-  const [formPlatform,setFormPlatform]=useState<Platform>("Home Computer");
+  const [formName,setFormName]         = useState(makeTitle);
+  const [formTopic,setFormTopic]       = useState<Topic>("Fantasy");
+  const [formGenre,setFormGenre]       = useState<Genre>("RPG");
+  const [formPlatform,setFormPlatform] = useState<Platform>("Home Computer");
 
-  // ── Tutorial ──
-  const [tutorialStep,setTutorialStep]=useState<TutorialStep>("start");
-  const [pillDismissed,setPillDismissed]=useState(false);
-  const [actionBurst,setActionBurst]=useState<{type:string;key:number}|null>(null);
+  // ── Tutorial / objectives ──
+  const [tutorialStep,setTutorialStep] = useState<TutorialStep>("start");
+  const [pillDismissed,setPillDismissed] = useState(false);
+  const [actionBurst,setActionBurst]   = useState<{type:string;key:number}|null>(null);
 
   // ── Refs ──
-  const phaseRef=useRef(phase);
-  const upgradesRef=useRef(upgrades);
-  const focusRef=useRef(focusMode);
-  const salesRef=useRef(salesTail);
-  const weekRef=useRef(week);
-  const yearRef=useRef(year);
-  const weeksSinceEvent=useRef(0);
-  const releaseReadyFired=useRef(false); // guard: only fire release_ready once per project
-  phaseRef.current=phase;
-  upgradesRef.current=upgrades;
-  focusRef.current=focusMode;
-  salesRef.current=salesTail;
-  weekRef.current=week;
-  yearRef.current=year;
+  const phaseRef     = useRef(phase);
+  const upgradesRef  = useRef(upgrades);
+  const focusRef     = useRef(focusMode);
+  const salesRef     = useRef(salesTail);
+  const weekRef      = useRef(week);
+  const yearRef      = useRef(year);
+  const fansRef      = useRef(fans);
+  const weeksSinceEvent = useRef(0);
+  const releaseReadyFired = useRef(false);
+  phaseRef.current    = phase;
+  upgradesRef.current = upgrades;
+  focusRef.current    = focusMode;
+  salesRef.current    = salesTail;
+  weekRef.current     = week;
+  yearRef.current     = year;
+  fansRef.current     = fans;
 
   // ── ISO anchors ──
-  const charHead      = iso(5.5,5.0,2.45);
-  const monitorPos    = iso(4.73,5.1,2.3);
-  const bookshelfPos  = iso(9.0,0.5,3.5);
-  const deskTop       = iso(4.25,5.1,1.9);
-  const computerPos   = iso(4.3,5.05,3.0);
+  const charHead     = iso(5.5,5.0,2.45);
+  const monitorPos   = iso(4.73,5.1,2.3);
+  const bookshelfPos = iso(9.0,0.5,3.5);
+  const deskTop      = iso(4.25,5.1,1.9);
+  const computerPos  = iso(4.3,5.05,3.0);
 
   // ── Bubble spawner ──
-  const spawnBubble=useCallback((text:string,color:string,svgX:number,svgY:number)=>{
-    const ox=(Math.random()-0.5)*30;
-    const oy=(Math.random()-0.5)*10;
+  const spawnBubble = useCallback((text:string,color:string,svgX:number,svgY:number)=>{
+    const ox = (Math.random()-0.5)*30;
+    const oy = (Math.random()-0.5)*10;
     setBubbles(prev=>[
       ...prev.filter(b=>Date.now()-b.born<2000),
       {id:Date.now()+Math.random(),text,color,svgX:svgX+ox,svgY:svgY+oy,born:Date.now()}
@@ -241,18 +330,23 @@ export default function GarageScene() {
   useEffect(()=>{
     track("session_start",{});
     (window as Record<string,unknown>).printSessionSummary = ()=>{
-      const elapsed=(Date.now()-analytics.sessionStartedAt)/1000;
+      const elapsed = (Date.now()-analytics.sessionStartedAt)/1000;
       console.group("[Session Summary]");
       console.log(`Time played: ${elapsed.toFixed(0)}s`);
-      console.log("Funnel flags:",analytics.flags);
-      console.log(`First computer click: ${analytics.firstComputerClick?((analytics.firstComputerClick-analytics.sessionStartedAt)/1000).toFixed(1)+"s":"never"}`);
+      console.log("Funnel flags:", analytics.flags);
+      console.log(`First click: ${analytics.firstComputerClick?((analytics.firstComputerClick-analytics.sessionStartedAt)/1000).toFixed(1)+"s":"never"}`);
       console.log(`First project start: ${analytics.firstProjectStart?((analytics.firstProjectStart-analytics.sessionStartedAt)/1000).toFixed(1)+"s":"never"}`);
       console.log(`First release: ${analytics.firstRelease?((analytics.firstRelease-analytics.sessionStartedAt)/1000).toFixed(1)+"s":"never"}`);
       console.log(`First upgrade: ${analytics.firstUpgradeBought?((analytics.firstUpgradeBought-analytics.sessionStartedAt)/1000).toFixed(1)+"s":"never"}`);
-      console.log(`Panels opened: ${analytics.panelsOpened}`);
-      console.log(`Actions used: ${analytics.actionsUsed}`);
-      console.log(`Bubbles spawned: ${analytics.bubblesSpawned}`);
-      console.log(`Second project: ${analytics.flags.startedSecondProject}`);
+      console.log(`Started second project: ${analytics.flags.startedSecondProject}`);
+      console.log(`Released second game: ${analytics.flags.secondGameReleased}`);
+      console.log(`Beat previous score: ${analytics.flags.beatPreviousScore}`);
+      console.log(`Beat previous revenue: ${analytics.flags.beatPreviousRevenue}`);
+      console.log(`Used upgrade before second game: ${analytics.flags.usedUpgradeBeforeSecond}`);
+      console.log(`Best score: ${analytics.bestScore}`);
+      console.log(`Best revenue: $${analytics.bestRevenue.toLocaleString()}`);
+      console.log(`Total games released: ${analytics.totalGamesReleased}`);
+      console.log(`Panels opened: ${analytics.panelsOpened}  Actions used: ${analytics.actionsUsed}  Bubbles spawned: ${analytics.bubblesSpawned}`);
       console.groupEnd();
     };
     (window as Record<string,unknown>).resetGame = ()=>window.location.reload();
@@ -262,7 +356,7 @@ export default function GarageScene() {
   // ── Release-ready effect (fires exactly once per project) ──
   useEffect(()=>{
     if(project?.progress!==undefined&&project.progress>=100&&!releaseReadyFired.current){
-      releaseReadyFired.current=true;
+      releaseReadyFired.current = true;
       setCelebrating(true);
       track("release_ready",{});
       track("release_ready_visual_shown",{});
@@ -275,22 +369,22 @@ export default function GarageScene() {
 
   // ── Main simulation tick ──
   useEffect(()=>{
-    const id=setInterval(()=>{
+    const id = setInterval(()=>{
       setWeek(w=>{const n=w+1;if(n>52){setYear(y=>y+1);return 1;}return n;});
-      weeksSinceEvent.current+=1;
+      weeksSinceEvent.current += 1;
 
-      const ph=phaseRef.current;
-      const up=upgradesRef.current;
-      const fm=focusRef.current;
+      const ph = phaseRef.current;
+      const up = upgradesRef.current;
+      const fm = focusRef.current;
 
       // Energy
       if(ph==="developing"){
         if(fm==="rest"){
           setEnergy(e=>Math.min(100,e+12));
-          spawnBubble(`Energy +12`,"#10b981",charHead.x,charHead.y-15);
+          spawnBubble("Energy +12","#10b981",charHead.x,charHead.y-15);
         } else {
-          const drain=fm==="crunch"?8:fm==="fixBugs"?2:3;
-          const mod=up.has("coffeemaker")?0.75:1.0;
+          const drain = fm==="crunch"?8:fm==="fixBugs"?2:3;
+          const mod   = up.has("coffeemaker")?0.75:1.0;
           setEnergy(e=>Math.max(0,e-drain*mod));
         }
       } else {
@@ -300,58 +394,56 @@ export default function GarageScene() {
       // Development tick
       if(ph==="developing"&&fm!=="rest"){
         setEnergy(en=>{
-          const energyMod=en<25?0.5:1.0;
-          const speedMod=up.has("betterPC")?1.2:1.0;
-          const bugMod=up.has("whiteboard")?0.8:1.0;
-          const designMod=up.has("books")?1.15:1.0;
-          const baseRate=fm==="crunch"?1.8:fm==="fixBugs"?0.5:fm==="research"?0.6:1.0;
-          const rate=3.0*baseRate*speedMod*energyMod;
+          const energyMod = en<25?0.5:1.0;
+          const speedMod  = up.has("betterPC")?1.2:1.0;
+          const bugMod    = up.has("whiteboard")?0.8:1.0;
+          const designMod = up.has("books")?1.15:1.0;
+          const baseRate  = fm==="crunch"?1.8:fm==="fixBugs"?0.5:fm==="research"?0.6:1.0;
+          const rate      = 3.0*baseRate*speedMod*energyMod;
+          const r = Math.random();
 
-          const r=Math.random();
           if(fm==="fixBugs"){
             if(r<0.7){
-              const bugFix=Math.floor(2+Math.random()*3);
+              const bugFix = Math.floor(2+Math.random()*3);
               spawnBubble(`Bug −${bugFix}`,"#22c55e",monitorPos.x,monitorPos.y-20);
               setProject(p=>p?{...p,bugs:Math.max(0,p.bugs-bugFix)}:p);
             }
           } else if(fm==="research"){
-            const rGain=Math.floor(1+Math.random()*2);
+            const rGain = Math.floor(1+Math.random()*2);
             spawnBubble(`Research +${rGain}`,"#a855f7",bookshelfPos.x,bookshelfPos.y-20);
             setProject(p=>p?{...p,research:(p.research??0)+rGain}:p);
             track("research_gained",{gain:rGain});
           } else {
-            const dBoost=fm==="design"?1.5:fm==="tech"?0.7:1.0;
-            const tBoost=fm==="tech"?1.5:fm==="design"?0.7:1.0;
-            const bugChance=fm==="crunch"?0.45:0.25;
-
+            const dBoost   = fm==="design"?1.5:fm==="tech"?0.7:1.0;
+            const tBoost   = fm==="tech"?1.5:fm==="design"?0.7:1.0;
+            const bugChance= fm==="crunch"?0.45:0.25;
             if(r<0.30){
-              const g=Math.floor((2+Math.random()*4)*dBoost*designMod*energyMod);
+              const g = Math.floor((2+Math.random()*4)*dBoost*designMod*energyMod);
               spawnBubble(`Design +${g}`,"#f59e0b",charHead.x,charHead.y-12);
               setProject(p=>p?{...p,design:p.design+g}:p);
             } else if(r<0.55){
-              const g=Math.floor((2+Math.random()*4)*tBoost*speedMod*energyMod);
+              const g = Math.floor((2+Math.random()*4)*tBoost*speedMod*energyMod);
               spawnBubble(`Tech +${g}`,"#3b82f6",monitorPos.x,monitorPos.y-15);
               setProject(p=>p?{...p,tech:p.tech+g}:p);
             } else if(r<0.55+bugChance){
-              const b=Math.floor((1+Math.random()*2)*bugMod);
+              const b = Math.floor((1+Math.random()*2)*bugMod);
               spawnBubble(`Bug +${b}`,"#ef4444",monitorPos.x,monitorPos.y-10);
               setProject(p=>p?{...p,bugs:p.bugs+b}:p);
               track("bug_indicator_shown",{bugs:b});
             }
           }
-
           setProject(p=>p?{...p,progress:Math.min(100,p.progress+rate)}:p);
           return en;
         });
       }
 
       // Sales tail
-      const tail=salesRef.current;
+      const tail = salesRef.current;
       if(tail&&tail.weeksLeft>0){
-        const elapsed=tail.weeksTotal-tail.weeksLeft;
-        const decay=0.72+tail.score*0.012;
-        const wRev=Math.floor(tail.baseRevenue*Math.pow(decay,elapsed));
-        const wFans=Math.floor(tail.baseFans*Math.pow(decay,elapsed));
+        const elapsed = tail.weeksTotal-tail.weeksLeft;
+        const decay   = 0.72+tail.score*0.012;
+        const wRev    = Math.floor(tail.baseRevenue*Math.pow(decay,elapsed));
+        const wFans   = Math.floor(tail.baseFans*Math.pow(decay,elapsed));
         setCash(c=>c+wRev);
         setFans(f=>f+wFans);
         setSalesTail(s=>s?{...s,weeksLeft:s.weeksLeft-1}:null);
@@ -363,8 +455,8 @@ export default function GarageScene() {
 
       // Random events
       if(weeksSinceEvent.current>=8&&Math.random()<0.18){
-        weeksSinceEvent.current=0;
-        const ev=EVENTS[~~(Math.random()*EVENTS.length)];
+        weeksSinceEvent.current = 0;
+        const ev = EVENTS[~~(Math.random()*EVENTS.length)];
         setToast(ev.text);
         if(ev.fans){setFans(f=>f+ev.fans);spawnBubble(`Fans +${ev.fans}`,"#a855f7",charHead.x+20,charHead.y-25);}
         if(ev.cash){setCash(c=>c+ev.cash);spawnBubble(`${ev.cash>0?"+":""}$${Math.abs(ev.cash)}`,"#22c55e",deskTop.x,deskTop.y-15);}
@@ -374,20 +466,21 @@ export default function GarageScene() {
       }
 
       console.log(`[week] Y${yearRef.current} W${weekRef.current+1}`);
-    },2000);
-    return()=>clearInterval(id);
+    }, 2000);
+    return ()=>clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[spawnBubble]);
 
   // ── Handlers ──
   function onComputerClick(e:React.MouseEvent){
-    e.stopPropagation(); // FIX: prevent bubble-up to root close handler
+    e.stopPropagation();
     if(phase==="idle"){
       if(!analytics.flags.clickedComputer){ analytics.firstComputerClick=Date.now(); }
       track("computer_clicked",{});
       track("new_project_opened",{});
       analytics.panelsOpened++;
       if(tutorialStep==="start") setTutorialStep("pick");
+      if(history.length>0) track("second_project_prompt_shown",{});
       setShowNewGame(true);
     } else if(phase==="developing"){
       analytics.panelsOpened++;
@@ -398,7 +491,7 @@ export default function GarageScene() {
   }
 
   function onShelfClick(e:React.MouseEvent){
-    e.stopPropagation(); // FIX: same propagation issue
+    e.stopPropagation();
     setShowShop(s=>!s);
     setShowComputer(false);
     track("upgrade_shop_opened",{});
@@ -413,39 +506,82 @@ export default function GarageScene() {
   }
 
   function startProject(){
-    releaseReadyFired.current=false; // reset for new project
-    const p:Project={name:formName||makeTitle(),topic:formTopic,genre:formGenre,platform:formPlatform,design:0,tech:0,bugs:0,progress:0,research:0};
+    releaseReadyFired.current = false;
+    const p:Project = {name:formName||makeTitle(),topic:formTopic,genre:formGenre,platform:formPlatform,design:0,tech:0,bugs:0,progress:0,research:0};
     setProject(p);
     setPhase("developing");
     setFocusMode(null);
     setShowNewGame(false);
     setShowComputer(false);
-    const isSecond=history.length>0;
-    if(!analytics.flags.startedFirstProject){ analytics.firstProjectStart=Date.now(); track("project_started",{name:p.name}); setTutorialStep("develop"); }
-    else if(isSecond&&!analytics.flags.startedSecondProject){ track("second_project_started",{name:p.name}); setTutorialStep("done"); }
+    const isSecond = history.length>0;
+    if(!analytics.flags.startedFirstProject){
+      analytics.firstProjectStart = Date.now();
+      track("project_started",{name:p.name});
+      setTutorialStep("develop");
+    } else if(isSecond&&!analytics.flags.startedSecondProject){
+      track("second_project_started",{name:p.name});
+      if(upgrades.size>0) track("upgrade_bonus_used",{upgrades:[...upgrades]});
+      setTutorialStep("beat");
+    }
     track("project_pill_shown",{name:p.name});
     console.log(`[project] started: ${p.name}`);
   }
 
   function releaseGame(){
-    if(!project)return;
-    const result=generateReview(project,upgrades);
+    if(!project) return;
+    const result = generateReview(project, upgrades);
+    const diag   = buildDiagnosis(project, result, upgrades);
+    const tgt    = buildNextTarget(result, history, fansRef.current);
+
     setReviewResult(result);
-    const weeksTotal=Math.floor(4+result.score*0.5);
-    const tailRev=Math.floor(result.revenue*0.3/weeksTotal);
-    const tailFans=Math.floor(result.fansGained*0.3/weeksTotal);
+    setDiagnosis(diag);
+    setNextTarget(tgt);
+
+    // Discover combo
+    const comboScore = COMBO[project.genre]?.[project.topic]??1.0;
+    const label      = comboLabel(comboScore);
+    setDiscoveredCombos(prev=>{
+      const key = `${project.topic}|${project.genre}|${project.platform}`;
+      const existing = prev.find(c=>`${c.topic}|${c.genre}|${c.platform}`===key);
+      if(existing) return prev.map(c=>`${c.topic}|${c.genre}|${c.platform}`===key?{...c,score:result.score,label}:c);
+      track("combo_discovered",{topic:project.topic,genre:project.genre,score:result.score,label});
+      return [...prev,{topic:project.topic,genre:project.genre,platform:project.platform,score:result.score,label}];
+    });
+
+    const weeksTotal = Math.floor(4+result.score*0.5);
+    const tailRev    = Math.floor(result.revenue*0.3/weeksTotal);
+    const tailFans   = Math.floor(result.fansGained*0.3/weeksTotal);
     setSalesTail({gameName:project.name,score:result.score,weeksLeft:weeksTotal,weeksTotal,baseRevenue:tailRev,baseFans:tailFans});
-    setHistory(h=>[...h,{name:project.name,score:result.score,revenue:result.revenue,fansGained:result.fansGained,year,week}]);
+
+    const newGame:ReleasedGame = {name:project.name,score:result.score,revenue:result.revenue,fansGained:result.fansGained,bugs:Math.floor(project.bugs),year,week,topic:project.topic,genre:project.genre,platform:project.platform};
+    setHistory(h=>{
+      const newH = [...h, newGame];
+      // analytics comparisons
+      analytics.totalGamesReleased = newH.length;
+      if(result.score > analytics.bestScore){ analytics.bestScore = result.score; }
+      if(result.revenue > analytics.bestRevenue){ analytics.bestRevenue = result.revenue; }
+      if(h.length > 0){
+        const prevBest = Math.max(...h.map(g=>g.score));
+        const prevRev  = Math.max(...h.map(g=>g.revenue));
+        if(result.score > prevBest)  { track("beat_previous_score",{score:result.score,prev:prevBest}); }
+        if(result.revenue > prevRev) { track("beat_previous_revenue",{revenue:result.revenue,prev:prevRev}); }
+        if(h.length === 1)           { track("second_game_released",{score:result.score}); }
+      }
+      return newH;
+    });
+
     setPhase("releasing");
     setShowComputer(false);
-    if(!analytics.flags.releasedFirstGame){ analytics.firstRelease=Date.now(); }
+    if(!analytics.flags.releasedFirstGame){ analytics.firstRelease = Date.now(); }
+    if(!analytics.flags.firstGameCompleted) track("first_game_completed",{score:result.score});
     track("game_released",{name:project.name,score:result.score,revenue:result.revenue});
     track("review_report_viewed",{});
+    track("diagnosis_panel_viewed",{factors:diag.length});
     console.log(`[release] ${project.name} | score: ${result.score}`);
   }
 
   function dismissReview(){
-    if(!reviewResult)return;
+    if(!reviewResult) return;
     setCash(c=>c+Math.floor(reviewResult.revenue*0.7));
     setFans(f=>f+Math.floor(reviewResult.fansGained*0.7));
     setReviewResult(null);
@@ -453,18 +589,22 @@ export default function GarageScene() {
     setPhase("idle");
     setFocusMode(null);
     setCelebrating(false);
-    if(tutorialStep==="release") setTutorialStep("upgrade");
+    // Objective transition
+    if(tutorialStep==="release")  setTutorialStep("upgrade");
+    if(tutorialStep==="beat")     setTutorialStep("done");
   }
 
   function buyUpgrade(id:string,cost:number){
-    if(upgrades.has(id)||cash<cost)return;
+    if(upgrades.has(id)||cash<cost) return;
     setCash(c=>c-cost);
     setUpgrades(u=>new Set([...u,id]));
+    const def = UPGRADE_DEFS.find(u=>u.id===id);
+    if(def) { setLastBuyMessage(def.nextGame); setTimeout(()=>setLastBuyMessage(null),5000); }
     setShowShop(false);
     if(!analytics.flags.boughtUpgrade){ analytics.firstUpgradeBought=Date.now(); }
     track("upgrade_bought",{id,cost});
     if(tutorialStep==="upgrade") setTutorialStep("second");
-    spawnBubble(`✓ ${id}`,"#22c55e",bookshelfPos.x,bookshelfPos.y-20);
+    spawnBubble(`✓ ${def?.name??id}`,"#22c55e",bookshelfPos.x,bookshelfPos.y-20);
     console.log(`[upgrade] bought: ${id}`);
   }
 
@@ -474,7 +614,6 @@ export default function GarageScene() {
     analytics.actionsUsed++;
     track("development_focus_changed",{from:focusMode,to:id});
     setActionBurst({type:id??"balanced",key:Date.now()});
-    // Immediate visual feedback bubbles
     if(id==="design")   { spawnBubble("Design ↑","#f59e0b",charHead.x,charHead.y-20); spawnBubble("Design ↑","#f59e0b",charHead.x+25,charHead.y-30); }
     if(id==="tech")     { spawnBubble("Tech ↑","#3b82f6",monitorPos.x,monitorPos.y-25); spawnBubble("Tech ↑","#3b82f6",monitorPos.x+20,monitorPos.y-35); }
     if(id==="fixBugs")  { spawnBubble("Bug fix ✓","#22c55e",monitorPos.x,monitorPos.y-20); }
@@ -487,11 +626,23 @@ export default function GarageScene() {
   const working        = phase==="developing";
   const tired          = energy<25;
   const readyToRelease = working&&(project?.progress??0)>=100;
-  const combo          = COMBO[formGenre]?.[formTopic]??1.0;
+  const formCombo      = COMBO[formGenre]?.[formTopic]??1.0;
   const bestScore      = history.length>0?Math.max(...history.map(g=>g.score)):0;
   const bestRevenue    = history.length>0?Math.max(...history.map(g=>g.revenue)):0;
   const bugCount       = Math.min(5,Math.ceil((project?.bugs??0)/8));
   const projectStatus  = !project?"":project.progress>=100?"Ready to Release":project.progress>=75?"Polishing":project.progress>=25?"In Development":"Planning";
+  const lastGame       = history.length>0?history[history.length-1]:null;
+
+  // Active upgrade bonuses label
+  const activeBonuses: string[] = [];
+  if(upgrades.has("betterPC"))    activeBonuses.push("+20% Tech");
+  if(upgrades.has("books"))       activeBonuses.push("+15% Design");
+  if(upgrades.has("whiteboard"))  activeBonuses.push("-20% Bugs");
+  if(upgrades.has("coffeemaker")) activeBonuses.push("-25% Energy drain");
+
+  // Discovered combo lookup for current form selection
+  const discoveredKey = `${formTopic}|${formGenre}|${formPlatform}`;
+  const priorCombo    = discoveredCombos.find(c=>`${c.topic}|${c.genre}|${c.platform}`===discoveredKey);
 
   // ── Hint map ──
   const hintMap: Record<TutorialStep,string|null> = {
@@ -501,18 +652,21 @@ export default function GarageScene() {
     release:"Release your game from the computer panel.",
     upgrade:"Click the shelf to buy your first upgrade.",
     second:"Start a second game and beat your first score.",
+    beat:null,
     done:null,
   };
-  const currentHint=hintMap[tutorialStep];
+  const currentHint = hintMap[tutorialStep];
 
   // ── Objective pill ──
-  const objectiveText=(()=>{
-    if(phase==="idle"&&history.length===0) return "Start your first game";
-    if(working&&(project?.progress??0)<100) return "Reach 100% progress";
-    if(working&&(project?.progress??0)>=100) return "Release your game";
-    if(phase==="releasing") return "See your review";
-    if(phase==="idle"&&history.length>0&&upgrades.size===0) return "Buy an upgrade";
-    if(phase==="idle"&&history.length>0&&upgrades.size>0&&history.length<2) return "Start your second game";
+  const objectiveText = (()=>{
+    if(phase==="idle"&&history.length===0)                          return "Start your first game";
+    if(working&&(project?.progress??0)<100)                         return nextTarget?`Target: ${nextTarget.text}`:"Reach 100% progress";
+    if(working&&(project?.progress??0)>=100)                        return "Release your game!";
+    if(phase==="releasing")                                         return "See your review";
+    if(phase==="idle"&&history.length>0&&upgrades.size===0)         return "Buy an upgrade";
+    if(phase==="idle"&&history.length===1&&upgrades.size>0)         return "Start your second game";
+    if(phase==="idle"&&history.length>=2&&fans<100)                 return "Reach 100 fans";
+    if(phase==="idle"&&history.length>=2&&fans>=100)                return `Earn $${(Math.ceil(bestRevenue*1.5/100)*100).toLocaleString()} total`;
     return null;
   })();
 
@@ -582,13 +736,11 @@ export default function GarageScene() {
           <P p={[[8,0,0],[8,1,0],[8,1,5],[8,0,5]]} fill="#7a4e2c"/>
           <P p={[[8,0,5],[10,0,5],[10,1,5],[8,1,5]]} fill="#8c5a35"/>
           {[1.5,3.0].map((z,i)=><P key={i} p={[[8,0,z],[10,0,z],[10,1,z],[8,1,z]]} fill="#4a2a14"/>)}
-          {/* Shelf hint glow */}
           {tutorialStep==="upgrade"&&(
             <motion.ellipse cx={bookshelfPos.x} cy={bookshelfPos.y+30} rx={30} ry={14}
               fill="#f59e0b" opacity={0}
               animate={{opacity:[0,0.3,0]}} transition={{repeat:Infinity,duration:1.6}}/>
           )}
-          {/* Books */}
           {[
             [[8.3,0.15,1.5],[8.6,0.15,1.5],[8.6,0.85,1.5],[8.3,0.85,1.5],"#d94b4b"],
             [[8.3,0.15,1.5],[8.3,0.15,2.5],[8.6,0.15,2.5],[8.6,0.15,1.5],"#c23b3b"],
@@ -655,14 +807,14 @@ export default function GarageScene() {
               fill="#f59e0b" opacity={0}
               animate={{opacity:[0,0.22,0]}} transition={{repeat:Infinity,duration:1.6}}/>
           )}
-          {/* RELEASE-READY computer green glow */}
+          {/* RELEASE-READY green glow */}
           {readyToRelease&&(
             <motion.ellipse cx={computerPos.x} cy={computerPos.y+10} rx={55} ry={22}
               fill="#22c55e" opacity={0}
               animate={{opacity:[0,0.25,0]}} transition={{repeat:Infinity,duration:1.0}}/>
           )}
 
-          {/* MONITOR HOUSING - clickable (stopPropagation via onComputerClick) */}
+          {/* MONITOR HOUSING */}
           <P p={[[3.85,4.5,1.72],[4.75,4.5,1.72],[4.75,5.75,1.72],[3.85,5.75,1.72]]}
             fill={upgrades.has("betterPC")?"#c8d8e8":"#e4e4e4"} onClick={onComputerClick} cursor="pointer"/>
           <P p={[[4.75,4.5,1.72],[4.75,5.75,1.72],[4.75,5.75,2.7],[4.75,4.5,2.7]]}
@@ -707,13 +859,13 @@ export default function GarageScene() {
             </motion.g>
           )}
 
-          {/* BUG INDICATORS near monitor */}
+          {/* BUG INDICATORS */}
           {working&&bugCount>0&&(
             <g>
               {Array.from({length:bugCount},(_,i)=>{
                 const bx=monitorPos.x-20+(i*10);
                 const by=monitorPos.y+12;
-                return (
+                return(
                   <text key={i} x={bx} y={by} fontSize="10" textAnchor="middle"
                     style={{animation:`bugWiggle ${0.3+i*0.05}s ease-in-out infinite`,display:"inline-block",transformOrigin:`${bx}px ${by}px`}}>
                     🐛
@@ -730,11 +882,7 @@ export default function GarageScene() {
 
           {/* CHARACTER */}
           <motion.g
-            animate={celebrating
-              ?{y:[0,-8,0,-6,0,-4,0]}
-              :focusMode==="rest"?{y:[0,-0.5,0]}
-              :tired?{y:[0,-0.5,0]}
-              :working?{y:[0,-3,0,-2.5,0,-1,0]}:{y:[0,-1,0]}}
+            animate={celebrating?{y:[0,-8,0,-6,0,-4,0]}:focusMode==="rest"?{y:[0,-0.5,0]}:tired?{y:[0,-0.5,0]}:working?{y:[0,-3,0,-2.5,0,-1,0]}:{y:[0,-1,0]}}
             transition={{repeat:Infinity,duration:celebrating?0.5:focusMode==="rest"?3:tired?4:working?0.65:2.8,ease:"easeInOut"}}
           >
             <P p={[[5.2,4.8,0],[5.7,4.8,0],[5.7,5.3,0],[5.2,5.3,0]]} fill="#1e1e1e"/>
@@ -766,24 +914,11 @@ export default function GarageScene() {
               <motion.g key={actionBurst.key}
                 initial={{opacity:1,scale:0.5}} animate={{opacity:0,scale:2.5}} exit={{opacity:0}}
                 transition={{duration:0.6,ease:"easeOut"}}>
-                {actionBurst.type==="design"&&([0,60,120,180,240,300].map((a,i)=>{
-                  const r2=a*Math.PI/180;
-                  return <circle key={i} cx={charHead.x+Math.cos(r2)*22} cy={charHead.y+Math.sin(r2)*22} r={5} fill="#f59e0b"/>;
-                }))}
-                {actionBurst.type==="tech"&&([0,45,90,135,180,225,270,315].map((a,i)=>{
-                  const r2=a*Math.PI/180;
-                  return <circle key={i} cx={monitorPos.x+Math.cos(r2)*20} cy={monitorPos.y+Math.sin(r2)*20} r={4} fill="#3b82f6"/>;
-                }))}
-                {actionBurst.type==="fixBugs"&&(
-                  <circle cx={monitorPos.x} cy={monitorPos.y} r={36} fill="none" stroke="#22c55e" strokeWidth={3} opacity={0.8}/>
-                )}
-                {actionBurst.type==="crunch"&&(
-                  <circle cx={computerPos.x} cy={computerPos.y} r={42} fill="none" stroke="#ef4444" strokeWidth={3} opacity={0.8}/>
-                )}
-                {actionBurst.type==="research"&&([0,60,120,180,240,300].map((a,i)=>{
-                  const r2=a*Math.PI/180;
-                  return <circle key={i} cx={bookshelfPos.x+Math.cos(r2)*22} cy={bookshelfPos.y+Math.sin(r2)*22} r={5} fill="#a855f7"/>;
-                }))}
+                {actionBurst.type==="design"&&([0,60,120,180,240,300].map((a,i)=>{const r2=a*Math.PI/180;return<circle key={i} cx={charHead.x+Math.cos(r2)*22} cy={charHead.y+Math.sin(r2)*22} r={5} fill="#f59e0b"/>; }))}
+                {actionBurst.type==="tech"&&([0,45,90,135,180,225,270,315].map((a,i)=>{const r2=a*Math.PI/180;return<circle key={i} cx={monitorPos.x+Math.cos(r2)*20} cy={monitorPos.y+Math.sin(r2)*20} r={4} fill="#3b82f6"/>; }))}
+                {actionBurst.type==="fixBugs"&&(<circle cx={monitorPos.x} cy={monitorPos.y} r={36} fill="none" stroke="#22c55e" strokeWidth={3} opacity={0.8}/>)}
+                {actionBurst.type==="crunch"&&(<circle cx={computerPos.x} cy={computerPos.y} r={42} fill="none" stroke="#ef4444" strokeWidth={3} opacity={0.8}/>)}
+                {actionBurst.type==="research"&&([0,60,120,180,240,300].map((a,i)=>{const r2=a*Math.PI/180;return<circle key={i} cx={bookshelfPos.x+Math.cos(r2)*22} cy={bookshelfPos.y+Math.sin(r2)*22} r={5} fill="#a855f7"/>; }))}
               </motion.g>
             </AnimatePresence>
           )}
@@ -847,19 +982,14 @@ export default function GarageScene() {
       {/* ── PROJECT PILL (top-center) ──────────────────────────────────────── */}
       <AnimatePresence>
         {working&&project&&(
-          <motion.div
-            initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}}
-            transition={{duration:0.3}}
-            className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pill-appear"
-          >
+          <motion.div initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}} transition={{duration:0.3}}
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pill-appear">
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border shadow text-xs font-bold backdrop-blur
               ${readyToRelease?"bg-green-500/90 border-green-400 text-white release-pulse":"bg-white/90 border-gray-200 text-gray-700"}`}>
               <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${readyToRelease?"bg-white":focusMode==="crunch"?"bg-red-500":focusMode==="design"?"bg-amber-400":focusMode==="tech"?"bg-blue-500":"bg-amber-400 animate-pulse"}`}/>
               <span className="font-black truncate max-w-[120px]">{project.name}</span>
-              <span className={`text-[10px] font-semibold ${readyToRelease?"text-white/90":"text-gray-400"}`}>·</span>
-              <span className={`text-[10px] whitespace-nowrap ${readyToRelease?"text-white/90":project.progress>=75?"text-orange-500":project.progress>=25?"text-blue-500":"text-gray-400"}`}>
-                {projectStatus}
-              </span>
+              <span className={`text-[10px] ${readyToRelease?"text-white/90":"text-gray-400"}`}>·</span>
+              <span className={`text-[10px] whitespace-nowrap ${readyToRelease?"text-white/90":project.progress>=75?"text-orange-500":project.progress>=25?"text-blue-500":"text-gray-400"}`}>{projectStatus}</span>
               <span className={`text-[10px] font-black ${readyToRelease?"text-white":"text-gray-500"}`}>{Math.floor(project.progress)}%</span>
             </div>
           </motion.div>
@@ -868,31 +998,28 @@ export default function GarageScene() {
 
       {/* ── OBJECTIVE PILL (top-right) ─────────────────────────────────────── */}
       <AnimatePresence>
-        {objectiveText&&!pillDismissed&&tutorialStep!=="done"&&(
-          <motion.div
+        {objectiveText&&!pillDismissed&&(
+          <motion.div key={objectiveText}
             initial={{opacity:0,x:20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:20}}
-            className="absolute top-3 right-3 z-20 flex items-center gap-1.5"
-          >
+            className="absolute top-3 right-3 z-20">
             <div className="bg-white/90 backdrop-blur border border-amber-200 rounded-full shadow px-3 py-1.5 flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0"/>
-              <span className="text-[10px] font-bold text-gray-700 whitespace-nowrap">{objectiveText}</span>
+              <span className="text-[10px] font-bold text-gray-700 whitespace-nowrap max-w-[180px] truncate">{objectiveText}</span>
               <button onClick={()=>setPillDismissed(true)} className="text-gray-300 hover:text-gray-500 text-[10px] leading-none ml-0.5 transition-colors">✕</button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Focus indicator when objective pill dismissed */}
-      {focusMode&&working&&pillDismissed&&(
-        <div className="absolute top-3 right-3 z-20 pointer-events-none">
-          <div className={`text-[10px] font-black px-2.5 py-1 rounded-full border text-white ${
-            focusMode==="crunch"?"bg-red-500 border-red-600":focusMode==="fixBugs"?"bg-green-500 border-green-600":
-            focusMode==="design"?"bg-amber-500 border-amber-600":focusMode==="rest"?"bg-emerald-500 border-emerald-600":
-            focusMode==="research"?"bg-purple-500 border-purple-600":"bg-blue-500 border-blue-600"}`}>
-            {focusMode==="design"?"Design Focus":focusMode==="tech"?"Tech Focus":focusMode==="fixBugs"?"Fixing Bugs":focusMode==="rest"?"Resting":focusMode==="research"?"Researching":"CRUNCH MODE"}
-          </div>
-        </div>
-      )}
+      {/* ── UPGRADE BOUGHT TOAST ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {lastBuyMessage&&(
+          <motion.div initial={{opacity:0,y:-20}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-20}}
+            className="absolute top-14 right-3 z-30 bg-green-600 text-white text-[11px] font-bold px-4 py-2 rounded-xl shadow-lg max-w-[200px] leading-snug">
+            ✓ {lastBuyMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── COMPUTER PANEL ────────────────────────────────────────────────── */}
       <AnimatePresence>
@@ -955,14 +1082,15 @@ export default function GarageScene() {
             </div>
             <div className="flex flex-col gap-2">
               {UPGRADE_DEFS.map(upg=>{
-                const owned=upgrades.has(upg.id);
-                const afford=cash>=upg.cost;
+                const owned  = upgrades.has(upg.id);
+                const afford = cash>=upg.cost;
                 return(
                   <div key={upg.id} data-testid={`upgrade-${upg.id}`}
                     onClick={()=>!owned&&afford&&buyUpgrade(upg.id,upg.cost)}
                     className={`p-2.5 rounded-xl border text-xs transition-all ${owned?"bg-green-50 border-green-200":afford?"bg-white border-gray-200 hover:bg-amber-50 cursor-pointer active:scale-95":"bg-gray-50 border-gray-100 opacity-50"}`}>
                     <div className="font-bold text-gray-800">{upg.name}</div>
                     <div className="text-gray-400 text-[10px] mt-0.5">{upg.desc}</div>
+                    {owned&&<div className="text-[10px] text-green-600 mt-1 italic">{upg.nextGame}</div>}
                     <div className={`font-black text-[11px] mt-1 ${owned?"text-green-600":afford?"text-amber-600":"text-gray-400"}`}>
                       {owned?"✓ Owned":`$${upg.cost.toLocaleString()}`}
                     </div>
@@ -990,7 +1118,7 @@ export default function GarageScene() {
                   <span className={`font-black ${g.score>=7?"text-green-600":g.score>=5?"text-amber-600":"text-red-500"}`}>{g.score}/10</span>
                   <span className="text-green-600">${g.revenue.toLocaleString()}</span>
                 </div>
-                {g.score===bestScore&&history.length>1&&<div className="text-[9px] text-amber-500 font-bold mt-0.5">⭐ Best Score</div>}
+                {g.score===bestScore&&history.length>1&&<div className="text-[9px] text-amber-500 font-bold mt-0.5">⭐ Best</div>}
               </div>
             ))}
           </motion.div>
@@ -1006,26 +1134,57 @@ export default function GarageScene() {
             <motion.div data-panel="newgame"
               initial={{scale:0.88,y:24}} animate={{scale:1,y:0}} exit={{scale:0.88,y:24}}
               transition={{type:"spring",damping:22}}
-              className="bg-white rounded-2xl shadow-2xl p-5 w-[340px] max-h-[90vh] overflow-y-auto border border-gray-100"
+              className="bg-white rounded-2xl shadow-2xl p-5 w-[350px] max-h-[92vh] overflow-y-auto border border-gray-100"
             >
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex justify-between items-center mb-3">
                 <h2 className="text-sm font-black text-gray-700 uppercase tracking-wider">New Project</h2>
                 <button onClick={randomizeForm} className="text-[10px] font-black px-2.5 py-1 rounded-lg bg-violet-100 text-violet-600 hover:bg-violet-200 transition-colors active:scale-95">
                   🎲 Randomize
                 </button>
               </div>
-              {history.length>0&&(
-                <div className="mb-3 px-2.5 py-2 rounded-lg bg-amber-50 border border-amber-100 text-[10px] text-amber-700">
-                  <div className="font-black mb-0.5">Beat your record</div>
-                  <div className="flex gap-3"><span>Best score: <b>{bestScore}/10</b></span><span>Best rev: <b>${bestRevenue.toLocaleString()}</b></span></div>
+
+              {/* Previous game comparison card */}
+              {lastGame&&(
+                <div className="mb-3 p-3 rounded-xl border border-gray-100 bg-gray-50 text-xs">
+                  <div className="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1.5">Last Release</div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-bold text-gray-700 truncate max-w-[120px]">{lastGame.name}</div>
+                      <div className="text-[10px] text-gray-400">{lastGame.topic} · {lastGame.genre}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`font-black ${lastGame.score>=7?"text-green-600":lastGame.score>=5?"text-amber-600":"text-red-500"}`}>{lastGame.score}/10</div>
+                      <div className="text-green-600 text-[10px]">${lastGame.revenue.toLocaleString()}</div>
+                    </div>
+                  </div>
+                  {history.length>1&&(
+                    <div className="flex gap-3 mt-1.5 text-[10px] text-gray-400">
+                      <span>Best score: <b className="text-gray-600">{bestScore}/10</b></span>
+                      <span>Best rev: <b className="text-green-600">${bestRevenue.toLocaleString()}</b></span>
+                    </div>
+                  )}
+                  {nextTarget&&(
+                    <div className="mt-1.5 pt-1.5 border-t border-gray-100 text-[10px] font-bold text-amber-600">
+                      🎯 {nextTarget.text}
+                    </div>
+                  )}
                 </div>
               )}
+
+              {/* Active upgrade bonuses */}
+              {activeBonuses.length>0&&(
+                <div className="mb-3 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-[10px] text-blue-700 font-semibold">
+                  Active bonuses: {activeBonuses.join(" · ")}
+                </div>
+              )}
+
               <label className="block mb-3">
                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Title</span>
                 <input type="text" value={formName} onChange={e=>setFormName(e.target.value)} maxLength={30}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-gray-50"
                   data-testid="input-game-name"/>
               </label>
+
               <div className="mb-3">
                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Topic</span>
                 <div className="grid grid-cols-4 gap-1">
@@ -1037,6 +1196,7 @@ export default function GarageScene() {
                   ))}
                 </div>
               </div>
+
               <div className="mb-3">
                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Genre</span>
                 <div className="grid grid-cols-3 gap-1">
@@ -1048,6 +1208,7 @@ export default function GarageScene() {
                   ))}
                 </div>
               </div>
+
               <div className="mb-3">
                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Platform</span>
                 <div className="flex flex-col gap-1">
@@ -1059,9 +1220,20 @@ export default function GarageScene() {
                   ))}
                 </div>
               </div>
-              <div className={`text-[11px] px-2.5 py-1.5 rounded-lg mb-4 font-semibold ${combo>=1.4?"bg-green-50 text-green-700 border border-green-200":combo<=0.8?"bg-red-50 text-red-600 border border-red-200":"bg-gray-50 text-gray-500 border border-gray-100"}`}>
-                {combo>=1.4?`✓ Great combo! ${formTopic} × ${formGenre} works perfectly.`:combo<=0.8?`✗ Weak combo. ${formTopic} and ${formGenre} clash.`:`Decent combo for ${formTopic} ${formGenre}.`}
+
+              {/* Combo quality + discovered history */}
+              <div className={`text-[11px] px-2.5 py-1.5 rounded-lg mb-2 font-semibold ${formCombo>=1.4?"bg-green-50 text-green-700 border border-green-200":formCombo<=0.8?"bg-red-50 text-red-600 border border-red-200":"bg-gray-50 text-gray-500 border border-gray-100"}`}>
+                {formCombo>=1.4?`✓ Great combo! ${formTopic} × ${formGenre} works perfectly.`:formCombo<=0.8?`✗ Weak combo. ${formTopic} and ${formGenre} clash.`:`Decent combo for ${formTopic} ${formGenre}.`}
               </div>
+
+              {/* Discovered combo memory */}
+              {priorCombo&&(
+                <div className={`text-[11px] px-2.5 py-1.5 rounded-lg mb-3 border flex items-center gap-2 ${priorCombo.label==="Great Match"?"bg-green-50 border-green-200 text-green-700":priorCombo.label==="Good Match"?"bg-blue-50 border-blue-200 text-blue-700":priorCombo.label==="Weak Match"?"bg-orange-50 border-orange-200 text-orange-700":"bg-red-50 border-red-200 text-red-600"}`}>
+                  <span>🕹</span>
+                  <span>You tried this before — scored <b>{priorCombo.score}/10</b> · <b>{priorCombo.label}</b></span>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <button onClick={()=>setShowNewGame(false)} className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm font-semibold hover:bg-gray-50">Cancel</button>
                 <button onClick={startProject} data-testid="button-start" className="flex-2 px-6 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm transition-colors active:scale-95">Start!</button>
@@ -1074,30 +1246,39 @@ export default function GarageScene() {
       {/* ── REVIEW OVERLAY ────────────────────────────────────────────────── */}
       <AnimatePresence>
         {reviewResult&&phase==="releasing"&&(()=>{
-          const prev=history.slice(0,-1);
-          const prevBest=prev.length>0?Math.max(...prev.map(g=>g.score)):0;
-          const prevBestRev=prev.length>0?Math.max(...prev.map(g=>g.revenue)):0;
-          const isNewBestScore=prev.length>0&&reviewResult.score>prevBest;
-          const isNewBestRevenue=prev.length>0&&reviewResult.revenue>prevBestRev;
+          const prev = history.slice(0,-1);
+          const prevBest    = prev.length>0?Math.max(...prev.map(g=>g.score)):0;
+          const prevBestRev = prev.length>0?Math.max(...prev.map(g=>g.revenue)):0;
+          const prevBugs    = prev.length>0?prev[prev.length-1].bugs:null;
+          const currBugs    = history[history.length-1]?.bugs??0;
+          const isNewBestScore   = prev.length>0&&reviewResult.score>prevBest;
+          const isNewBestRevenue = prev.length>0&&reviewResult.revenue>prevBestRev;
+          const fewerBugs        = prevBugs!==null&&currBugs<prevBugs;
+          const rec = scoreRecommendation(reviewResult.score);
           return(
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
               className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md">
               <motion.div data-panel="review"
                 initial={{scale:0.85,y:30}} animate={{scale:1,y:0}} exit={{scale:0.85,y:30}}
                 transition={{type:"spring",damping:20}}
-                className="bg-gray-950 text-white rounded-2xl shadow-2xl p-6 w-[380px] max-h-[90vh] overflow-y-auto border border-gray-700"
+                className="bg-gray-950 text-white rounded-2xl shadow-2xl p-6 w-[390px] max-h-[92vh] overflow-y-auto border border-gray-700"
               >
+                {/* Header */}
                 <motion.div initial={{opacity:0,y:-10}} animate={{opacity:1,y:0}} transition={{delay:0.1}} className="text-center mb-4">
                   <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Game Released</div>
                   <div className="text-xl font-black text-white">{reviewResult.gameName}</div>
                   <div className="text-xs text-gray-500 mt-0.5">{project?.topic} · {project?.genre} · {project?.platform}</div>
-                  {(isNewBestScore||isNewBestRevenue)&&(
-                    <div className="flex gap-2 justify-center mt-2">
-                      {isNewBestScore&&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white">⭐ New best score!</span>}
+                  {/* Celebration badges */}
+                  {(isNewBestScore||isNewBestRevenue||fewerBugs)&&(
+                    <div className="flex flex-wrap gap-1.5 justify-center mt-2">
+                      {isNewBestScore  &&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white">⭐ New best score!</span>}
                       {isNewBestRevenue&&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-green-600 text-white">💰 Revenue record!</span>}
+                      {fewerBugs       &&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-600 text-white">🐛 Fewer bugs!</span>}
                     </div>
                   )}
                 </motion.div>
+
+                {/* Review cards */}
                 <div className="flex flex-col gap-1.5 mb-4">
                   {reviewResult.reviewers.map((r,i)=>(
                     <motion.div key={i} initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} transition={{delay:0.25+i*0.18}}
@@ -1110,9 +1291,11 @@ export default function GarageScene() {
                     </motion.div>
                   ))}
                 </div>
-                <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.1}}
-                  className="bg-gray-900 rounded-2xl p-4 mb-4">
-                  <div className="flex items-center justify-between mb-3">
+
+                {/* Score summary */}
+                <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.0}}
+                  className="bg-gray-900 rounded-2xl p-4 mb-3">
+                  <div className="flex items-center justify-between mb-2">
                     <div>
                       <div className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Avg Score</div>
                       <div className={`text-4xl font-black mt-0.5 ${reviewResult.score>=8?"text-green-400":reviewResult.score>=6.5?"text-amber-400":reviewResult.score>=5?"text-orange-400":"text-red-400"}`}>{reviewResult.score}</div>
@@ -1125,20 +1308,44 @@ export default function GarageScene() {
                       <div><div className="text-[9px] text-gray-500 uppercase">Sales Tail</div><div className="text-sm font-black text-blue-400">{salesTail?.weeksTotal??0}wks</div></div>
                     </div>
                   </div>
-                  {project&&project.bugs>5&&<div className="text-[10px] text-red-400 font-bold text-center mb-1">⚠ {Math.floor(project.bugs)} bugs hurt your score</div>}
-                  {project&&(project.research??0)>5&&<div className="text-[10px] text-purple-400 font-bold text-center mb-1">🔬 Research gave a score bonus</div>}
-                  <div className="text-[10px] text-gray-500 text-center">70% revenue paid now · 30% over {salesTail?.weeksTotal??0} weeks</div>
-                  {history.length>=2&&(
-                    <div className="mt-3 pt-3 border-t border-gray-800">
-                      <div className="text-[9px] font-black text-gray-500 uppercase mb-1.5">vs. your best</div>
-                      <div className="flex gap-3 text-[10px]">
-                        <div>Score: <span className={`font-black ${isNewBestScore?"text-green-400":"text-gray-400"}`}>{reviewResult.score} {isNewBestScore?"↑":"↓"} {prevBest}</span></div>
-                        <div>Rev: <span className={`font-black ${isNewBestRevenue?"text-green-400":"text-gray-400"}`}>${reviewResult.revenue.toLocaleString()} {isNewBestRevenue?"↑":"↓"}</span></div>
-                      </div>
+                  {/* Prev vs best comparison */}
+                  {prev.length>0&&(
+                    <div className="mt-2 pt-2 border-t border-gray-800 flex gap-3 text-[10px]">
+                      <div>Score: <span className={`font-black ${isNewBestScore?"text-green-400":"text-gray-400"}`}>{reviewResult.score} {isNewBestScore?"↑ new best":"↓ "+prevBest+" best"}</span></div>
+                      <div>Rev: <span className={`font-black ${isNewBestRevenue?"text-green-400":"text-gray-400"}`}>${reviewResult.revenue.toLocaleString()} {isNewBestRevenue?"↑":"↓"}</span></div>
                     </div>
                   )}
+                  <div className="text-[10px] text-gray-600 text-center mt-2">70% revenue now · 30% over {salesTail?.weeksTotal??0} weeks</div>
                 </motion.div>
-                <motion.button initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.3}}
+
+                {/* DIAGNOSIS PANEL — "Why this score?" */}
+                <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:1.1}}
+                  className="bg-gray-900 rounded-2xl p-4 mb-3">
+                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">Why this score?</div>
+                  <div className="flex flex-col gap-1.5">
+                    {diagnosis.map((f,i)=>(
+                      <div key={i} className={`flex items-start gap-2 text-[11px] rounded-lg px-2 py-1.5 ${f.sentiment==="pos"?"bg-green-950/60 text-green-300":f.sentiment==="neg"?"bg-red-950/60 text-red-300":"bg-gray-800 text-gray-400"}`}>
+                        <span className="text-sm leading-none mt-0.5 flex-shrink-0">{f.icon}</span>
+                        <span>{f.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Next target + recommendation */}
+                <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:1.25}}
+                  className="bg-gray-900 rounded-2xl p-4 mb-4">
+                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">Next game</div>
+                  {nextTarget&&(
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-amber-400 text-sm">🎯</span>
+                      <span className="text-sm font-black text-white">{nextTarget.text}</span>
+                    </div>
+                  )}
+                  <div className={`text-[11px] ${rec.color}`}>{rec.text}</div>
+                </motion.div>
+
+                <motion.button initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.4}}
                   onClick={dismissReview} data-testid="button-back"
                   className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black transition-colors active:scale-95">
                   Back to the Garage

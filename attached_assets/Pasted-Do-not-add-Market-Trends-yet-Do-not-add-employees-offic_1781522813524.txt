@@ -1,0 +1,228 @@
+Do not add Market Trends yet.
+
+Do not add employees, offices, burnout, publishers, save/load, research trees, platform history, contracts, or complex economy.
+
+The next pass is focused on early retention: make the player want to start and finish a second game after releasing the first one.
+
+Current status:
+The prototype now has:
+
+* clickable computer
+* project creation
+* automatic development
+* design/tech/bug/research bubbles
+* project pill
+* release-ready state
+* review report
+* sales tail
+* upgrades
+* analytics
+
+Now improve the “second game motivation” loop.
+
+Goal:
+After the first release, the player should immediately understand:
+
+* what score they got
+* why they got that score
+* what hurt the game
+* what helped the game
+* what upgrade or focus could improve the next game
+* what target they should beat next
+
+1. Add a post-release diagnosis panel
+
+In the release report, add a compact “Why this score?” section.
+
+Show 3–5 readable factors:
+Examples:
+
+* Strong combo: Fantasy + RPG
+* Good design balance
+* Too many bugs hurt reviews
+* Low energy slowed development
+* Research bonus improved quality
+* Platform fit was weak
+* Tech was too low for this platform
+
+Each factor should have:
+
+* small icon
+* positive / neutral / negative styling
+* one short sentence
+
+Do not make this a spreadsheet.
+
+2. Add “Next game target”
+
+After first release, generate a clear next target:
+Examples:
+
+* “Beat score 6.8”
+* “Earn more than $1,420”
+* “Release with fewer than 5 bugs”
+* “Reach 100 fans”
+* “Try a stronger platform fit”
+
+Show this target:
+
+* in the release report
+* in the tiny top-right objective pill
+* in the new project panel
+
+3. Add previous game comparison
+
+When creating the second game, show a compact comparison card:
+
+* Last game title
+* Last score
+* Last revenue
+* Last bug count
+* Best score
+* Best revenue
+
+Then show:
+“Next target: Beat 6.8 / Earn more than $1,420”
+
+4. Improve release report for second game and later
+
+For every game after the first, compare against previous bests:
+
+* New best score!
+* Revenue record!
+* Fewer bugs than last game!
+* More fans gained than last game!
+* Better combo than last game!
+
+Use celebratory but minimal visual feedback.
+
+5. Add simple combo memory
+
+Track discovered topic/genre/platform performance.
+
+After release, mark the combo as discovered:
+state.discoveredCombos = []
+
+Store:
+
+* topic
+* genre
+* platform
+* score
+* rating label:
+
+  * Great Match
+  * Good Match
+  * Weak Match
+  * Bad Match
+
+In the new project panel, when choosing a previously tried combo, show:
+
+* “Previously scored 7.4”
+* “Great Match”
+* “Weak Match”
+
+Do not reveal all combos upfront.
+Only show what the player has learned.
+
+6. Add lightweight recommendation after bad release
+
+If score is below 5:
+Show:
+“Try lowering bugs or picking a stronger topic/genre match next time.”
+
+If score is 5–7:
+Show:
+“Good start. Improve balance and reduce bugs to score higher.”
+
+If score is above 7:
+Show:
+“Strong release. Try beating this score with better sales or fewer bugs.”
+
+7. Make upgrades feel connected to next game
+
+After buying an upgrade, show a small message:
+
+* Faster PC: “Your next game will generate more Tech.”
+* Programming Books: “Your next game will generate more Design.”
+* Whiteboard: “Your next game should produce fewer bugs.”
+* Coffee Maker: “Your developer loses less energy during work.”
+
+In the new project panel, show active upgrade bonuses compactly:
+“Active bonuses: +20% Tech, -20% Bugs”
+
+8. Add end-of-first-loop objective transition
+
+After first game release:
+Objective should become:
+“Buy an upgrade”
+
+After buying first upgrade:
+Objective should become:
+“Start your second game”
+
+After second project starts:
+Objective should become:
+“Beat your previous score”
+
+After second game releases:
+Objective should become:
+“Reach 100 fans” or “Earn $5,000 total”
+
+Keep this as one tiny objective pill only.
+
+9. Analytics
+
+Track:
+
+* first_game_completed
+* second_project_prompt_shown
+* second_project_started
+* second_game_released
+* beat_previous_score
+* beat_previous_revenue
+* upgrade_bonus_used
+* combo_discovered
+* diagnosis_panel_viewed
+
+Update printSessionSummary() to include:
+
+* Did player start second project?
+* Did player release second game?
+* Did second game beat first score?
+* Did player use an upgrade before second game?
+* Best score
+* Best revenue
+* Total games released
+
+10. Preserve UI rules
+
+Do not add:
+
+* permanent bottom panel
+* large dashboard
+* full-screen management screen
+* complex tables
+* market trends
+* employees
+* office upgrades
+* save/load
+
+Allowed persistent UI:
+
+* tiny top-left status card
+* tiny top-right objective pill
+* compact top-center project pill during active project only
+
+Everything else should be contextual, temporary, or report-based.
+
+11. Deliverable
+
+Return the complete updated HTML file with embedded CSS and JS.
+It must run directly in browser.
+No external dependencies.
+No placeholder TODOs.
+No “next I can add...” summary instead of code.
+
+Success criteria:
+After finishing the first game, the player should know exactly why the score happened and have a clear reason to start a second game.
