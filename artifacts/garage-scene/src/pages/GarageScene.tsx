@@ -72,6 +72,15 @@ const analytics = {
   firstReviewRevealed: null as number | null,
   finalSummaryViewedAt: null as number | null,
   playtestSurvey: { q1: 0, q2: 0, q3: 0, q4: 0, feedback: "" },
+  // Release-flow playtest analytics
+  watchedReviewsWithoutSkip: false,
+  reviewSkipClicked: false,
+  reviewFastForwardClicked: false,
+  salesWasPaused: false,
+  salesSpeedChanged: false,
+  watchedFullSalesTail: false,
+  releasePayoffCompleted: false,
+  releaseToSummaryMs: null as number | null,
 };
 
 function track(eventName: string, data: Record<string, unknown> = {}) {
@@ -236,14 +245,16 @@ interface SalesWeekData { week:number;units:number;revenue:number;fans:number; }
 interface ReleaseFlowState {
   phase:"reviews"|"reaction"|"sales"|"summary";
   reviewIndex:number;
-  revealStep:number;
+  reviewSubPhase:"entering"|"rolling"|"settled";
   salesWeeks:SalesWeekData[];
   salesIndex:number;
   runningRevenue:number;
   runningFans:number;
   runningUnits:number;
-  autoPlay:boolean;
+  salesSpeed:1|2;
+  salesPaused:boolean;
   skippedSales:boolean;
+  skippedReviews:boolean;
   reviewPhaseStartAt:number;
 }
 interface Bubble { id:number;text:string;color:string;svgX:number;svgY:number;born:number; }
@@ -484,6 +495,9 @@ export default function GarageScene() {
   // ── Playtest state ──
   const [showPlaytestSummary,setShowPlaytestSummary] = useState(false);
   const [surveyAnswers,setSurveyAnswers] = useState({q1:0,q2:0,q3:0,q4:0,feedback:""});
+  // ── Release cinematic state ──
+  const [reviewDisplayScore,setReviewDisplayScore] = useState(0);
+  const scoreRollIntervalRef = useRef<ReturnType<typeof setInterval>|null>(null);
 
   // ── Refs ──
   const phaseRef     = useRef(phase);
@@ -723,18 +737,80 @@ export default function GarageScene() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[releaseFlow?.phase]);
 
-  // ── Release flow: autoplay sales weeks ──
+  // ── Release flow: auto-advance reviews ──
   useEffect(()=>{
-    if(!releaseFlow?.autoPlay||releaseFlow.phase!=="sales") return;
-    const id = setInterval(()=>{
+    if(!releaseFlow||releaseFlow.phase!=="reviews") return;
+    const sub=releaseFlow.reviewSubPhase;
+    const idx=releaseFlow.reviewIndex;
+    const delay=sub==="entering"?500:sub==="rolling"?1450:idx>=4?2200:950;
+    const id=setTimeout(()=>{
+      const cur=releaseFlowRef.current;
+      if(!cur||cur.phase!=="reviews"||cur.reviewSubPhase!==sub||cur.reviewIndex!==idx) return;
+      if(sub==="entering"){
+        setReleaseFlow(f=>f?{...f,reviewSubPhase:"rolling"}:f);
+      } else if(sub==="rolling"){
+        const finalScore=idx>=4?(reviewResultRef.current?.score??5):(reviewResultRef.current?.reviewers[idx]?.score??5);
+        setReviewDisplayScore(finalScore);
+        setReleaseFlow(f=>f?{...f,reviewSubPhase:"settled"}:f);
+      } else {
+        if(idx>=4){
+          if(!cur.skippedReviews) analytics.watchedReviewsWithoutSkip=true;
+          const score=reviewResultRef.current?.score??0;
+          if(score>=7) setCelebrating(true);
+          track("all_reviews_revealed",{avgScore:score});
+          setReleaseFlow(f=>f?{...f,phase:"reaction"}:f);
+        } else {
+          const nextIdx=idx+1;
+          if(analytics.reviewsRevealed===0) analytics.firstReviewRevealed=Date.now();
+          analytics.reviewsRevealed++;
+          track("review_revealed",{index:idx,outlet:reviewResultRef.current?.reviewers[idx]?.outlet});
+          if(nextIdx>=4){
+            track("review_average_revealed",{avg:reviewResultRef.current?.score});
+            setReleaseFlow(f=>f?{...f,reviewIndex:4,reviewSubPhase:"entering"}:f);
+          } else {
+            setReleaseFlow(f=>f?{...f,reviewIndex:nextIdx,reviewSubPhase:"entering"}:f);
+          }
+        }
+      }
+    },delay);
+    return ()=>clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[releaseFlow?.reviewSubPhase,releaseFlow?.reviewIndex,releaseFlow?.phase]);
+
+  // ── Release flow: score roll animation ──
+  useEffect(()=>{
+    if(!releaseFlow||releaseFlow.phase!=="reviews"||releaseFlow.reviewSubPhase!=="rolling"){
+      if(scoreRollIntervalRef.current){clearInterval(scoreRollIntervalRef.current);scoreRollIntervalRef.current=null;}
+      return;
+    }
+    const idx=releaseFlow.reviewIndex;
+    const target=idx>=4?(reviewResultRef.current?.score??5):(reviewResultRef.current?.reviewers[idx]?.score??5);
+    let elapsed=0;
+    const TICK=90, DURATION=1350;
+    const id=setInterval(()=>{
+      elapsed+=TICK;
+      if(elapsed>=DURATION-TICK){setReviewDisplayScore(target);clearInterval(id);scoreRollIntervalRef.current=null;return;}
+      const spread=Math.max(0.5,(1-elapsed/DURATION)*2.2);
+      setReviewDisplayScore(Math.round(Math.max(1.0,Math.min(10.0,target+(Math.random()-0.5)*spread))*10)/10);
+    },TICK);
+    scoreRollIntervalRef.current=id;
+    return ()=>{clearInterval(id);scoreRollIntervalRef.current=null;};
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[releaseFlow?.reviewSubPhase,releaseFlow?.reviewIndex]);
+
+  // ── Release flow: auto-run sales ──
+  useEffect(()=>{
+    if(!releaseFlow||releaseFlow.phase!=="sales"||releaseFlow.salesPaused) return;
+    const ms=releaseFlow.salesSpeed===2?650:1250;
+    const id=setInterval(()=>{
       const flow=releaseFlowRef.current;
-      if(!flow||!flow.autoPlay||flow.phase!=="sales"){clearInterval(id);return;}
+      if(!flow||flow.phase!=="sales"||flow.salesPaused){clearInterval(id);return;}
       if(flow.salesIndex>=flow.salesWeeks.length){clearInterval(id);return;}
       handleNextSalesWeek();
-    },1300);
+    },ms);
     return ()=>clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[releaseFlow?.autoPlay,releaseFlow?.phase]);
+  },[releaseFlow?.salesPaused,releaseFlow?.salesSpeed,releaseFlow?.phase]);
 
   // ── Release flow: keyboard navigation ──
   useEffect(()=>{
@@ -745,17 +821,12 @@ export default function GarageScene() {
       if(!flow) return;
       if(e.key===" "||e.key==="Enter"){
         e.preventDefault();
-        if(flow.phase==="reviews"){
-          if(flow.reviewIndex<4) handleReviewAdvance();
-          else handleReviewContinue();
-        } else if(flow.phase==="reaction"){
-          handleStartSalesPhase();
-        } else if(flow.phase==="sales"){
-          handleNextSalesWeek();
-        }
+        if(flow.phase==="reviews") fastForwardReview();
+        else if(flow.phase==="reaction") handleStartSalesPhase();
       }
       if(e.key==="Escape"){
-        if(flow.phase==="sales"||flow.phase==="summary") handleSkipToSummary();
+        if(flow.phase==="reviews") skipReviews();
+        else if(flow.phase==="sales"||flow.phase==="summary") handleSkipToSummary();
       }
     }
     window.addEventListener("keydown",onKey);
@@ -1088,17 +1159,20 @@ export default function GarageScene() {
     console.log(`[release] ${project.name} | score: ${result.score} | trendMatched:${result.trendMatched}`);
 
     // Initialise phased release flow
+    setReviewDisplayScore(0);
     setReleaseFlow({
       phase:"reviews",
       reviewIndex:0,
-      revealStep:0,
+      reviewSubPhase:"entering",
       salesWeeks,
       salesIndex:0,
       runningRevenue:0,
       runningFans:0,
       runningUnits:0,
-      autoPlay:false,
+      salesSpeed:1,
+      salesPaused:false,
       skippedSales:false,
+      skippedReviews:false,
       reviewPhaseStartAt:Date.now(),
     });
   }
@@ -1151,39 +1225,46 @@ export default function GarageScene() {
   }
 
   // ── Release flow handlers ──
-  function handleReviewAdvance(){
-    const flow = releaseFlowRef.current;
-    if(!flow || flow.phase!=="reviews") return;
-    if(flow.revealStep===0){
-      // Reveal the quote + score
-      if(analytics.reviewsRevealed===0) analytics.firstReviewRevealed = Date.now();
-      analytics.reviewsRevealed++;
-      track("review_revealed",{index:flow.reviewIndex,outlet:reviewResultRef.current?.reviewers[flow.reviewIndex]?.outlet});
-      setReleaseFlow({...flow,revealStep:1});
+  function skipReviews(){
+    analytics.reviewSkipClicked=true;
+    track("review_skip_clicked",{atIndex:releaseFlowRef.current?.reviewIndex??0});
+    const score=reviewResultRef.current?.score??0;
+    if(score>=7) setCelebrating(true);
+    setReleaseFlow(f=>f?{...f,phase:"reaction",skippedReviews:true}:f);
+  }
+
+  function fastForwardReview(){
+    analytics.reviewFastForwardClicked=true;
+    track("review_fast_forward_clicked",{atIndex:releaseFlowRef.current?.reviewIndex??0});
+    const flow=releaseFlowRef.current;
+    if(!flow||flow.phase!=="reviews") return;
+    const idx=flow.reviewIndex;
+    if(flow.reviewSubPhase==="entering"){
+      setReleaseFlow({...flow,reviewSubPhase:"rolling"});
+    } else if(flow.reviewSubPhase==="rolling"){
+      const finalScore=idx>=4?(reviewResultRef.current?.score??5):(reviewResultRef.current?.reviewers[idx]?.score??5);
+      setReviewDisplayScore(finalScore);
+      setReleaseFlow({...flow,reviewSubPhase:"settled"});
     } else {
-      const next = flow.reviewIndex+1;
-      if(next>=4){
-        // All 4 reviews shown — show average score
-        track("review_average_revealed",{avg:reviewResultRef.current?.score});
-        setReleaseFlow({...flow,reviewIndex:4,revealStep:0});
+      if(idx>=4){
+        const score=reviewResultRef.current?.score??0;
+        if(score>=7) setCelebrating(true);
+        track("all_reviews_revealed",{avgScore:score});
+        setReleaseFlow({...flow,phase:"reaction"});
       } else {
-        setReleaseFlow({...flow,reviewIndex:next,revealStep:0});
+        const nextIdx=idx+1;
+        if(nextIdx>=4){
+          track("review_average_revealed",{avg:reviewResultRef.current?.score});
+          setReleaseFlow({...flow,reviewIndex:4,reviewSubPhase:"entering"});
+        } else {
+          setReleaseFlow({...flow,reviewIndex:nextIdx,reviewSubPhase:"entering"});
+        }
       }
     }
   }
 
-  function handleReviewContinue(){
-    // Called after average score is shown — go to reaction
-    const flow = releaseFlowRef.current;
-    if(!flow||flow.reviewIndex<4) return;
-    track("all_reviews_revealed",{avgScore:reviewResultRef.current?.score});
-    const score = reviewResultRef.current?.score??0;
-    if(score>=7) setCelebrating(true);
-    setReleaseFlow({...flow,phase:"reaction"});
-  }
-
   function handleStartSalesPhase(){
-    const flow = releaseFlowRef.current;
+    const flow=releaseFlowRef.current;
     if(!flow) return;
     track("sales_phase_started",{weeks:flow.salesWeeks.length});
     setCelebrating(false);
@@ -1194,7 +1275,11 @@ export default function GarageScene() {
     const flow = releaseFlowRef.current;
     if(!flow||flow.phase!=="sales") return;
     if(flow.salesIndex>=flow.salesWeeks.length){
-      setReleaseFlow({...flow,phase:"summary",autoPlay:false});
+      if(!analytics.finalSummaryViewedAt) analytics.finalSummaryViewedAt=Date.now();
+      if(!flow.skippedSales) analytics.watchedFullSalesTail=true;
+      analytics.releasePayoffCompleted=true;
+      if(analytics.firstReleaseClicked) analytics.releaseToSummaryMs=Date.now()-analytics.firstReleaseClicked;
+      setReleaseFlow({...flow,phase:"summary"});
       track("final_summary_viewed",{});
       analytics.reachedSummary=true;
       return;
@@ -1211,8 +1296,11 @@ export default function GarageScene() {
     const newFans = flow.runningFans+week.fans;
     const newUnits = flow.runningUnits+week.units;
     if(nextIdx>=flow.salesWeeks.length){
-      if(!analytics.finalSummaryViewedAt) analytics.finalSummaryViewedAt = Date.now();
-      setReleaseFlow({...flow,salesIndex:nextIdx,runningRevenue:newRev,runningFans:newFans,runningUnits:newUnits,phase:"summary",autoPlay:false});
+      if(!analytics.finalSummaryViewedAt) analytics.finalSummaryViewedAt=Date.now();
+      if(!flow.skippedSales){ analytics.watchedFullSalesTail=true; track("watched_full_sales_tail",{weeks:flow.salesWeeks.length}); }
+      analytics.releasePayoffCompleted=true;
+      if(analytics.firstReleaseClicked) analytics.releaseToSummaryMs=Date.now()-analytics.firstReleaseClicked;
+      setReleaseFlow({...flow,salesIndex:nextIdx,runningRevenue:newRev,runningFans:newFans,runningUnits:newUnits,phase:"summary"});
       track("final_summary_viewed",{});
       analytics.reachedSummary=true;
     } else {
@@ -1233,11 +1321,13 @@ export default function GarageScene() {
     if(remRev>0) setCash(c=>c+remRev);
     if(remFans>0) setFans(f=>f+remFans);
     analytics.skippedSales=true;
-    if(!analytics.finalSummaryViewedAt) analytics.finalSummaryViewedAt = Date.now();
+    if(!analytics.finalSummaryViewedAt) analytics.finalSummaryViewedAt=Date.now();
+    analytics.releasePayoffCompleted=true;
+    if(analytics.firstReleaseClicked) analytics.releaseToSummaryMs=Date.now()-analytics.firstReleaseClicked;
     track("sales_skipped",{weeksRemaining:flow.salesWeeks.length-flow.salesIndex});
     track("final_summary_viewed",{});
     analytics.reachedSummary=true;
-    setReleaseFlow({...flow,phase:"summary",salesIndex:flow.salesWeeks.length,runningRevenue:flow.runningRevenue+remRev,runningFans:flow.runningFans+remFans,runningUnits:flow.runningUnits+remUnits,autoPlay:false,skippedSales:true});
+    setReleaseFlow({...flow,phase:"summary",salesIndex:flow.salesWeeks.length,runningRevenue:flow.runningRevenue+remRev,runningFans:flow.runningFans+remFans,runningUnits:flow.runningUnits+remUnits,skippedSales:true});
   }
 
   function buyUpgrade(id:string,cost:number){
@@ -2261,12 +2351,11 @@ export default function GarageScene() {
             :{emoji:"😰",title:"Critics were not impressed.",sub:"Stronger combo and fewer bugs next time.",bg:"from-red-950 to-gray-950",ring:"border-red-800"};
 
           const rec = scoreRecommendation(reviewResult.score);
-          const currentReview = flow.reviewIndex<4?reviewResult.reviewers[flow.reviewIndex]:null;
-          const allSalesShown = flow.salesIndex>=flow.salesWeeks.length;
+          const maxUnits = flow.salesWeeks.length>0?Math.max(...flow.salesWeeks.map(w=>w.units)):1;
 
           return(
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
-              className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+              className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
               <motion.div data-panel="release-flow"
                 key={flow.phase}
                 initial={{scale:0.88,opacity:0,y:24}} animate={{scale:1,opacity:1,y:0}} exit={{scale:0.88,opacity:0,y:24}}
@@ -2276,65 +2365,101 @@ export default function GarageScene() {
 
                 {/* ── PHASE: REVIEWS ── */}
                 {flow.phase==="reviews"&&(
-                  <div className="p-6">
-                    {/* Header */}
-                    <div className="text-center mb-4">
-                      <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Game Released</div>
-                      <div className="text-lg font-black text-white mt-0.5 truncate">{reviewResult.gameName}</div>
-                      <div className="text-[11px] text-gray-500">{project?.topic} · {project?.genre} · {project?.platform}</div>
+                  <div className="p-5">
+                    <div className="text-center mb-3">
+                      <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Press Reviews</div>
+                      <div className="text-base font-black text-white mt-0.5 truncate">{reviewResult.gameName}</div>
+                      <div className="text-[10px] text-gray-500">{project?.topic} · {project?.genre} · {project?.platform}</div>
                     </div>
 
-                    {/* Progress dots */}
-                    <div className="flex gap-1.5 justify-center mb-4">
-                      {[0,1,2,3].map(i=>(
-                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i<flow.reviewIndex?"w-6 bg-amber-400":i===flow.reviewIndex?"w-8 bg-white":"w-6 bg-gray-700"}`}/>
+                    {/* 4 reviewer slots */}
+                    <div className="flex gap-1.5 mb-3">
+                      {reviewResult.reviewers.map((r,i)=>(
+                        <div key={i} className={`flex-1 flex flex-col items-center gap-1 rounded-xl py-2 px-1 transition-all ${
+                          i<flow.reviewIndex?"bg-gray-800/80"
+                          :i===flow.reviewIndex&&flow.reviewIndex<4?"bg-gray-800 ring-1 ring-amber-500/50"
+                          :"bg-gray-900"
+                        }`}>
+                          <span className="text-base leading-none">{OUTLET_ICONS[i]}</span>
+                          <div className={`text-[10px] font-black transition-all ${i<flow.reviewIndex?sc(r.score):"text-gray-700"}`}>
+                            {i<flow.reviewIndex?r.score:"—"}
+                          </div>
+                        </div>
                       ))}
                     </div>
 
                     {/* Review card or average */}
                     <AnimatePresence mode="wait">
-                      {flow.reviewIndex<4&&currentReview?(
+                      {flow.reviewIndex<4?(
                         <motion.div key={`rev-${flow.reviewIndex}`}
-                          initial={{opacity:0,x:32}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-32}}
-                          transition={{duration:0.22}}
-                          className="bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-4 min-h-[110px]">
+                          initial={{opacity:0,x:28}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-28}}
+                          transition={{duration:0.18}}
+                          className="bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-3" style={{minHeight:"130px"}}>
                           <div className="flex items-center gap-2.5 mb-3">
                             <span className="text-2xl leading-none">{OUTLET_ICONS[flow.reviewIndex]}</span>
-                            <div className="font-black text-sm text-white">{currentReview.outlet}</div>
+                            <div>
+                              <div className="font-black text-sm text-white leading-tight">{reviewResult.reviewers[flow.reviewIndex].outlet}</div>
+                              <div className="text-[9px] text-gray-600 font-bold uppercase tracking-wider">
+                                {flow.reviewSubPhase==="entering"?"reading…":"review"}
+                              </div>
+                            </div>
                           </div>
                           <AnimatePresence>
-                            {flow.revealStep>=1&&(
-                              <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.25}}>
-                                <div className="text-[12px] text-gray-400 italic mb-3 leading-relaxed">"{currentReview.blurb}"</div>
-                                <motion.div initial={{scale:0.4}} animate={{scale:1}} transition={{type:"spring",damping:14,delay:0.1}}
-                                  className={`text-5xl font-black text-center ${sc(currentReview.score)}`}>
-                                  {currentReview.score}
+                            {flow.reviewSubPhase!=="entering"&&(
+                              <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.22}}>
+                                <div className="text-[11px] text-gray-400 italic mb-3 leading-relaxed">
+                                  "{reviewResult.reviewers[flow.reviewIndex].blurb}"
+                                </div>
+                                <div className={`text-5xl font-black text-center transition-colors ${
+                                  flow.reviewSubPhase==="rolling"
+                                    ?sc(reviewDisplayScore||reviewResult.reviewers[flow.reviewIndex].score)
+                                    :sc(reviewResult.reviewers[flow.reviewIndex].score)
+                                }`}>
+                                  {flow.reviewSubPhase==="settled"
+                                    ?reviewResult.reviewers[flow.reviewIndex].score
+                                    :reviewDisplayScore>0?reviewDisplayScore.toFixed(1):"…"}
                                   <span className="text-lg text-gray-600 ml-1">/10</span>
-                                </motion.div>
+                                </div>
                               </motion.div>
                             )}
                           </AnimatePresence>
                         </motion.div>
                       ):(
                         <motion.div key="avg"
-                          initial={{opacity:0,scale:0.85}} animate={{opacity:1,scale:1}}
-                          className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4 text-center">
-                          <div className="text-[11px] text-gray-500 uppercase font-black tracking-wider mb-2">Average Score</div>
-                          <motion.div initial={{opacity:0,scale:0.5}} animate={{opacity:1,scale:1}} transition={{type:"spring",damping:12}}
-                            className={`text-6xl font-black ${sc(reviewResult.score)}`}>
-                            {reviewResult.score}
-                          </motion.div>
-                          <div className="text-sm text-gray-600 mt-0.5">/ 10</div>
+                          initial={{opacity:0,scale:0.88}} animate={{opacity:1,scale:1}}
+                          className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-3 text-center" style={{minHeight:"130px"}}>
+                          <div className="text-[10px] text-gray-500 uppercase font-black tracking-wider mb-3">Average Score</div>
+                          <div className={`text-6xl font-black transition-colors ${
+                            flow.reviewSubPhase==="rolling"
+                              ?sc(reviewDisplayScore||reviewResult.score)
+                              :sc(reviewResult.score)
+                          }`}>
+                            {flow.reviewSubPhase==="settled"
+                              ?reviewResult.score
+                              :reviewDisplayScore>0?reviewDisplayScore.toFixed(1):"…"}
+                            <span className="text-lg text-gray-600 ml-1">/10</span>
+                          </div>
+                          <div className="flex justify-center gap-4 mt-3">
+                            {reviewResult.reviewers.map((r,i)=>(
+                              <div key={i} className={`text-[11px] font-black ${sc(r.score)}`}>{r.score}</div>
+                            ))}
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
 
-                    {/* CTA button */}
-                    <button onClick={flow.reviewIndex<4?handleReviewAdvance:handleReviewContinue}
-                      className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-sm transition-colors active:scale-95">
-                      {flow.reviewIndex>=4?"See Reaction →":flow.revealStep===0?"Reveal Review ▼":"Next Review →"}
-                    </button>
-                    <div className="text-center text-[10px] text-gray-700 mt-2">Space / Enter to advance</div>
+                    {/* Controls */}
+                    <div className="flex gap-2">
+                      <button onClick={skipReviews}
+                        className="flex-1 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 text-[11px] font-bold transition-colors">
+                        Skip Reviews
+                      </button>
+                      <button onClick={fastForwardReview}
+                        className="flex-1 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 text-[11px] font-black transition-colors">
+                        ⏩ Fast Fwd
+                      </button>
+                    </div>
+                    <div className="text-center text-[9px] text-gray-700 mt-1.5">Space/Enter to fast-forward · Esc to skip all</div>
                   </div>
                 )}
 
@@ -2362,65 +2487,100 @@ export default function GarageScene() {
 
                 {/* ── PHASE: SALES ── */}
                 {flow.phase==="sales"&&(
-                  <div className="p-6">
-                    <div className="text-center mb-3">
-                      <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Sales Results</div>
-                      <div className="text-sm text-gray-400 mt-0.5 truncate">{reviewResult.gameName}</div>
+                  <div className="p-5">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="min-w-0 mr-2">
+                        <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Sales Results</div>
+                        <div className="text-sm font-black text-white truncate">{reviewResult.gameName}</div>
+                      </div>
+                      <div className={`text-xl font-black flex-shrink-0 ${sc(reviewResult.score)}`}>
+                        {reviewResult.score}<span className="text-xs text-gray-600">/10</span>
+                      </div>
                     </div>
 
-                    {/* Weeks revealed so far */}
-                    <div className="flex flex-col gap-1 mb-3 max-h-[160px] overflow-y-auto">
-                      {flow.salesWeeks.slice(0,flow.salesIndex).map((w,i)=>(
-                        <motion.div key={i} initial={{opacity:0,x:-18}} animate={{opacity:1,x:0}}
-                          className="flex items-center justify-between bg-gray-900 rounded-xl px-3 py-1.5 text-xs">
-                          <span className="text-gray-500 w-12 flex-shrink-0">Week {w.week}</span>
-                          <span className="text-gray-300">{w.units.toLocaleString()} units</span>
-                          <span className="text-green-400 font-black">${w.revenue.toLocaleString()}</span>
-                          <span className="text-violet-400">+{w.fans} fans</span>
-                        </motion.div>
-                      ))}
-                      {!allSalesShown&&(
-                        <div className="text-center text-gray-700 text-[10px] py-1">
-                          {flow.salesWeeks.length-flow.salesIndex} week{flow.salesWeeks.length-flow.salesIndex!==1?"s":""} remaining…
-                        </div>
-                      )}
+                    {/* Mini bar chart */}
+                    <div className="bg-gray-900 rounded-xl px-2 pt-2 pb-1 mb-3 border border-gray-800">
+                      <div className="text-[9px] text-gray-600 font-bold mb-1 px-1">Weekly Sales</div>
+                      <svg width="100%" height="48" viewBox={`0 0 ${Math.max(1,flow.salesWeeks.length)*26} 48`} preserveAspectRatio="none" className="overflow-visible">
+                        {flow.salesWeeks.map((w,i)=>{
+                          const barH=maxUnits>0?Math.max(3,Math.round((w.units/maxUnits)*40)):3;
+                          const revealed=i<flow.salesIndex;
+                          const isCurr=i===flow.salesIndex-1;
+                          const fill=!revealed?"#1f2937":isCurr?"#f59e0b":reviewResult.score>=7?"#22c55e":reviewResult.score>=5?"#f59e0b":"#ef4444";
+                          return(
+                            <motion.rect key={i}
+                              x={i*26+3} y={48-barH} width={20} height={barH}
+                              fill={fill} rx={3}
+                              initial={revealed&&isCurr?{opacity:0}:undefined}
+                              animate={{opacity:1}}
+                              transition={{duration:0.3}}
+                            />
+                          );
+                        })}
+                      </svg>
                     </div>
+
+                    {/* Latest week row */}
+                    <AnimatePresence mode="popLayout">
+                      {flow.salesIndex>0&&(
+                        <motion.div key={flow.salesIndex}
+                          initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0}}
+                          transition={{duration:0.22}}
+                          className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 mb-2.5 text-[11px]">
+                          <span className="text-amber-400 font-black">W{flow.salesWeeks[flow.salesIndex-1].week}</span>
+                          <span className="text-gray-300">{flow.salesWeeks[flow.salesIndex-1].units.toLocaleString()} units</span>
+                          <span className="text-green-400 font-black">${flow.salesWeeks[flow.salesIndex-1].revenue.toLocaleString()}</span>
+                          <span className="text-violet-400">+{flow.salesWeeks[flow.salesIndex-1].fans}</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Running totals */}
-                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 mb-3 grid grid-cols-2 gap-3 text-center">
-                      <div>
-                        <div className="text-[9px] text-gray-500 uppercase font-black">Revenue so far</div>
-                        <div className="text-xl font-black text-green-400">${flow.runningRevenue.toLocaleString()}</div>
-                      </div>
-                      <div>
-                        <div className="text-[9px] text-gray-500 uppercase font-black">Fans gained</div>
-                        <div className="text-xl font-black text-violet-400">+{flow.runningFans.toLocaleString()}</div>
-                      </div>
+                    <div className="grid grid-cols-3 gap-1.5 mb-3">
+                      {[
+                        {label:"Revenue",val:`$${flow.runningRevenue.toLocaleString()}`,cls:"text-green-400"},
+                        {label:"Fans",val:`+${flow.runningFans}`,cls:"text-violet-400"},
+                        {label:"Progress",val:`${flow.salesIndex}/${flow.salesWeeks.length}`,cls:flow.salesPaused?"text-amber-400":"text-gray-400"},
+                      ].map(s=>(
+                        <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-2 text-center">
+                          <div className="text-[9px] text-gray-500 uppercase font-black">{s.label}</div>
+                          <div className={`text-sm font-black mt-0.5 ${s.cls}`}>{s.val}</div>
+                        </div>
+                      ))}
                     </div>
 
-                    {/* Action buttons */}
-                    {!allSalesShown?(
-                      <div className="flex gap-2">
-                        <button onClick={handleNextSalesWeek} disabled={flow.autoPlay}
-                          className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-black text-sm active:scale-95 transition-colors">
-                          Next Week →
-                        </button>
-                        <button onClick={()=>{ analytics.autoPlayedSales=true; track("sales_autoplay_started",{}); setReleaseFlow(f=>f?{...f,autoPlay:!f.autoPlay}:f); }}
-                          className={`px-4 py-2.5 rounded-xl font-black text-sm active:scale-95 transition-colors ${flow.autoPlay?"bg-gray-600 text-white":"bg-gray-800 text-gray-300 hover:bg-gray-700"}`}>
-                          {flow.autoPlay?"⏸":"▶"}
-                        </button>
-                        <button onClick={handleSkipToSummary}
-                          className="px-3 py-2.5 rounded-xl bg-gray-900 text-gray-500 hover:text-gray-300 text-xs active:scale-95 border border-gray-800">
-                          Skip
-                        </button>
-                      </div>
-                    ):(
-                      <button onClick={()=>setReleaseFlow(f=>f?{...f,phase:"summary",autoPlay:false}:f)}
-                        className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm active:scale-95">
-                        See Summary →
+                    {/* Controls */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={()=>{
+                          if(!flow.salesPaused) analytics.salesWasPaused=true;
+                          track(flow.salesPaused?"sales_resumed":"sales_paused",{week:flow.salesIndex});
+                          setReleaseFlow(f=>f?{...f,salesPaused:!f.salesPaused}:f);
+                        }}
+                        className={`flex-1 py-2 rounded-xl font-black text-xs active:scale-95 transition-colors ${
+                          flow.salesPaused?"bg-amber-500 text-white hover:bg-amber-600":"bg-gray-800 text-gray-300 hover:bg-gray-700"
+                        }`}>
+                        {flow.salesPaused?"▶ Resume":"⏸ Pause"}
                       </button>
-                    )}
-                    {!allSalesShown&&<div className="text-center text-[10px] text-gray-700 mt-2">Space / Enter for next week · Escape to skip</div>}
+                      <button
+                        onClick={()=>{
+                          analytics.salesSpeedChanged=true;
+                          const newSpeed:1|2=flow.salesSpeed===2?1:2;
+                          track("sales_speed_changed",{speed:newSpeed});
+                          setReleaseFlow(f=>f?{...f,salesSpeed:newSpeed}:f);
+                        }}
+                        className={`px-3 py-2 rounded-xl font-black text-xs active:scale-95 transition-colors border ${
+                          flow.salesSpeed===2?"bg-blue-600 text-white border-blue-500":"bg-gray-900 text-gray-400 border-gray-700 hover:bg-gray-800"
+                        }`}>
+                        {flow.salesSpeed===2?"x2":"x1"}
+                      </button>
+                      <button onClick={handleSkipToSummary}
+                        className="px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-gray-500 hover:text-gray-300 text-xs active:scale-95 transition-colors">
+                        Skip →
+                      </button>
+                    </div>
+                    <div className="text-center text-[9px] text-gray-700 mt-1.5">Esc to skip to summary</div>
                   </div>
                 )}
 
@@ -2608,6 +2768,16 @@ export default function GarageScene() {
                     idleDetected:                 analytics.idleDetected,
                     missedClicksBeforeStart:      analytics.missedClicksBeforeStart,
                   },
+                  releaseFlowBehavior: {
+                    watchedReviewsWithoutSkip: analytics.watchedReviewsWithoutSkip,
+                    reviewSkipClicked:         analytics.reviewSkipClicked,
+                    reviewFastForwardClicked:  analytics.reviewFastForwardClicked,
+                    salesWasPaused:            analytics.salesWasPaused,
+                    salesSpeedChanged:         analytics.salesSpeedChanged,
+                    watchedFullSalesTail:      analytics.watchedFullSalesTail,
+                    releasePayoffCompleted:    analytics.releasePayoffCompleted,
+                    releaseToSummaryMs:        analytics.releaseToSummaryMs,
+                  },
                   releases: history,
                   upgradesBought: [...upgrades],
                   trendUsage: {
@@ -2692,6 +2862,9 @@ export default function GarageScene() {
                             ["Panels opened",   analytics.panelsOpened],
                             ["Dev actions",     analytics.actionsUsed],
                             ["Reviews seen",    analytics.reviewsRevealed],
+                            ["Watched all reviews", analytics.watchedReviewsWithoutSkip?"yes":"no"],
+                            ["Watched full sales", analytics.watchedFullSalesTail?"yes":"no"],
+                            ["Release→summary", analytics.releaseToSummaryMs!==null?Math.round(analytics.releaseToSummaryMs/1000)+"s":"—"],
                           ] as [string,string|number][]).map(([label,val])=>(
                             <div key={label} className="bg-gray-900 rounded-lg px-2.5 py-2 text-center">
                               <div className="text-sm font-black text-white leading-none">{val}</div>
@@ -2711,7 +2884,9 @@ export default function GarageScene() {
                             ["Menu opened with no action",          analytics.menuOpenedWithNoAction, analytics.menuOpenedWithNoAction>=2],
                             ["Locked menu items clicked",           analytics.clickedLockedMenuItem, analytics.clickedLockedMenuItem>=1],
                             ["60s idle with no project",            analytics.idleDetected?1:0, analytics.idleDetected],
+                            ["Reviews skipped",                     analytics.reviewSkipClicked?1:0, analytics.reviewSkipClicked],
                             ["Sales skipped",                       analytics.skippedSales?1:0, analytics.skippedSales],
+                            ["Sales paused mid-run",                analytics.salesWasPaused?1:0, false],
                           ] as [string,number,boolean][]).map(([label,val,warn])=>(
                             <div key={label} className={`flex items-center justify-between text-[11px] rounded-lg px-2.5 py-1.5 ${warn?"bg-red-950/50 text-red-300":"bg-gray-900 text-gray-400"}`}>
                               <span>{label}</span>

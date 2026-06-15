@@ -1,0 +1,370 @@
+Do not add save/load, research board, employees, offices, publishers, new contracts, custom engines, or more strategy systems.
+
+This pass is focused only on making the release/review/sales moment feel like a real tycoon-game payoff.
+
+Current issue:
+The current release flow is still too modal-driven and click-driven. The player should not have to click “Next Review” or “Next Week” repeatedly to experience the release. Reviews and sales should unfold automatically in real time with animations.
+
+Goal:
+Make the release moment feel closer to classic game-dev tycoon pacing:
+
+* review scores reveal automatically
+* each review score rolls through numbers before landing on its final score
+* sales happen week by week in real time
+* sales cards show animated mini charts
+* revenue/fans update live
+* player can watch the game sell without clicking every week
+
+Important:
+Do not copy Game Dev Tycoon UI, assets, exact layout, icons, names, or copyrighted identity. Create an original system with similar pacing and emotional structure.
+
+1. Replace click-to-reveal reviews with automatic review reveal
+
+When player releases a game:
+
+* Start the review reveal sequence automatically.
+* Do not require clicking “Next Review.”
+* Each review outlet appears one at a time.
+* Each score animates before settling on its predetermined final score.
+
+Example visual behavior:
+
+* final score is 10
+* score display rapidly cycles:
+  7 → 9 → 8 → 10 → 9 → 10
+* then lands on:
+  10!
+
+Rules:
+
+* The final score must be calculated before animation starts.
+* The animation must never change the real score.
+* Intermediate numbers are only visual suspense.
+* Final average must use the real predetermined review scores, not the animated intermediate values.
+
+2. Add review score roll animation
+
+Create a reusable function/component:
+
+animateReviewScore({
+finalScore,
+durationMs,
+onUpdate,
+onComplete
+})
+
+Behavior:
+
+* For 800–1400ms, display rapidly changing numbers near the final score.
+* Numbers should generally hover around the final score.
+* Bad game: mostly low numbers.
+* Great game: mostly high numbers.
+* Excellent game: allow dramatic near-10 flashes.
+* End exactly on finalScore.
+* Add a short punch animation when final score lands.
+
+Examples:
+
+* final 4.5 → 3, 5, 4, 6, 4.5
+* final 7.2 → 6, 8, 7, 7.5, 7.2
+* final 10 → 8, 9, 10, 9.5, 10!
+
+3. Automatic review sequence timing
+
+Review phase should run without user input:
+
+Timeline:
+
+* 0.0s: outlet card appears
+* 0.5s: quote appears
+* 0.8s: score roll starts
+* 2.0s: final score lands
+* 2.5s: next outlet begins
+
+After 4 reviews:
+
+* show average score reveal
+* average score also rolls briefly before landing
+* then transition automatically to sales phase after 2–3 seconds
+
+Controls:
+
+* Add small “Skip Reviews” button
+* Add small “Fast Forward” button
+* Space/Enter can speed up current reveal, but clicking should not be required
+
+4. Make review screen more game-like
+
+The review screen should not be a tall scrollable modal.
+
+Use a compact centered overlay:
+
+* game title
+* topic / genre / platform
+* current outlet card
+* four small slots showing review progress
+* average score area appears only after all reviews
+
+Each revealed review slot should show:
+
+* outlet icon
+* final score
+* color mood
+
+Do not show revenue, fans, diagnosis, or sales during review phase.
+
+5. Add real-time sales phase
+
+After reviews finish, start sales automatically.
+
+The player should not need to click “Next Week.”
+
+Create sales simulation state:
+
+releaseFlow.sales = {
+active: true,
+weekIndex: 0,
+weeks: [],
+runningUnits: 0,
+runningRevenue: 0,
+runningFans: 0,
+autoplay: true,
+completed: false
+}
+
+Sales weeks are generated before the phase starts, but revealed one by one automatically.
+
+Each sales week reveals every 1.0–1.5 seconds:
+
+* Week number
+* Units sold this week
+* Revenue this week
+* Fans gained this week
+* Running total
+
+Player controls:
+
+* Pause Sales
+* Resume Sales
+* Skip to Summary
+* Speed x1 / x2
+
+Default should be autoplay.
+
+6. Add animated sales cards with mini charts
+
+Add 1–2 compact sales cards, similar in purpose to tycoon sales widgets, but original in design.
+
+Each sales card should show:
+
+* game title
+* total units sold
+* small animated bar chart
+* current week revenue
+* running total revenue
+* fans gained
+
+Chart behavior:
+
+* one bar per sales week
+* each week adds a new bar
+* bar height based on units sold that week
+* Week 1 usually highest
+* later weeks decay, unless review score/hype/fans are strong
+
+Do not use a full dashboard.
+These should feel like floating sales widgets or report cards over the garage.
+
+7. Sales formula
+
+Sales should depend on:
+
+* average review score
+* existing fans before release
+* platform sales multiplier
+* hype
+* trend multiplier
+* bug penalty
+* random variance
+
+Suggested model:
+
+* baseDemand = 80 + fans * 0.08 + hype * 12
+* reviewMultiplier:
+
+  * score < 5: 0.4–0.8
+  * score 5–7: 0.8–1.2
+  * score 7–8.5: 1.2–1.8
+  * score > 8.5: 1.8–3.0
+* week decay:
+
+  * Week 1 = 100%
+  * Week 2 = 70–85%
+  * Week 3 = 50–70%
+  * later weeks decay
+* excellent games can have longer tails
+* bad games die quickly
+
+Tail length:
+
+* bad score: 3–4 weeks
+* average score: 4–5 weeks
+* good score: 6–7 weeks
+* excellent score: 8–10 weeks
+
+Revenue and fans must be added week by week, not all upfront.
+
+8. Garage integration during sales
+
+While sales are running:
+
+* money bubbles spawn near cash HUD
+* fans bubbles spawn near developer
+* small “sales ticker” toast appears:
+  “Week 3: 420 units · $5,040 · +18 fans”
+* if sales are strong, character celebrates briefly
+* if sales are weak, character looks worried
+* if sales are excellent, show a short “Breakout Hit!” badge
+
+Do not freeze the whole garage unless overlay needs focus.
+Sales should feel like the world is continuing.
+
+9. Final summary only after sales finish
+
+After all sales weeks complete:
+Show final compact summary:
+
+* average review score
+* total units
+* total revenue
+* total fans gained
+* profit/loss
+* best score comparison
+* best revenue comparison
+* next target
+
+Only here show:
+
+* “Why this score?”
+* trend impact
+* combo memory result
+* upgrade impact
+* recommendation for next game
+
+Make “Why this score?” collapsible by default if the screen is crowded.
+
+10. Remove mandatory user clicking from release flow
+
+The release flow should be enjoyable by just watching.
+
+Required user clicks:
+
+* Release Game
+
+Optional user clicks:
+
+* Fast Forward
+* Pause
+* Skip to Summary
+* Close Summary
+
+Do not require:
+
+* Next Review
+* Next Week
+* Reveal Score
+* Continue to Sales
+
+11. Keep Playtest Mode intact
+
+Do not remove Playtest Mode.
+
+Update analytics so Playtest Mode can measure:
+
+* watched_reviews_without_skip
+* review_skip_clicked
+* review_fast_forward_clicked
+* sales_autoplay_completed
+* sales_paused
+* sales_speed_changed
+* sales_skipped
+* watched_full_sales_tail
+* release_payoff_completed
+
+Update End Playtest summary with:
+
+* Did player watch all review reveals?
+* Did player skip sales?
+* Did player watch full sales tail?
+* Time from release clicked to final summary
+* Did player start second game after seeing final summary?
+
+12. Avoid scroll-heavy modals
+
+The review and sales flow should fit on screen.
+
+Desktop:
+
+* no vertical scrolling during reviews
+* no vertical scrolling during sales
+* final summary can scroll only if necessary
+
+Mobile:
+
+* allow scroll only when needed
+* keep primary action visible
+
+13. Preserve existing systems
+
+Do not break:
+
+* scoring formula
+* diagnosis panel
+* market trends
+* combo memory
+* upgrades
+* global studio menu
+* contracts
+* playtest summary
+* printSessionSummary()
+* runSmokeTest()
+
+14. QA
+
+After implementation:
+
+* run typecheck
+* run smoke test
+* manually release one game
+
+Manual release test:
+
+* start default project
+* reach release-ready
+* click Release Game
+* reviews auto-reveal
+* scores roll and land correctly
+* average score reveals automatically
+* sales starts automatically
+* weekly sales bars animate
+* money/fans increase week by week
+* final summary appears automatically
+* next objective becomes buy upgrade or start second game
+
+15. Deliverable
+
+Return complete updated code.
+Also include:
+
+* typecheck result
+* smoke test result
+* release flow test result
+
+Success criteria:
+The release moment should feel like a mini-event:
+
+* suspense during reviews
+* automatic score rolling
+* live sales charts
+* week-by-week revenue/fans
+* final summary with clear next target
