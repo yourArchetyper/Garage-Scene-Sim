@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-=======
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createGameEventBus, type GameEvent, type WeeklySalesPoint } from "../simulation/gameEvents";
@@ -21,7 +17,6 @@ import {
   pngSceneLayers,
   type DeveloperSpriteState,
 } from "../sceneAssets";
->>>>>>> 6983f31 (Initial commit)
 
 // ── Global window type declarations ──
 declare global {
@@ -103,8 +98,6 @@ const analytics = {
   watchedFullSalesTail: false,
   releasePayoffCompleted: false,
   releaseToSummaryMs: null as number | null,
-<<<<<<< HEAD
-=======
   marketGamesEntered: 0,
   marketGamesFinished: 0,
   totalSalesWeeksSimulated: 0,
@@ -115,7 +108,6 @@ const analytics = {
   bestTotalRevenue: 0,
   bestUnitsSold: 0,
   liveSalesProducedMoneyFans: false,
->>>>>>> 6983f31 (Initial commit)
 };
 
 function track(eventName: string, data: Record<string, unknown> = {}) {
@@ -279,11 +271,8 @@ interface SalesTail { gameName:string;score:number;weeksLeft:number;weeksTotal:n
 interface SalesWeekData { week:number;units:number;revenue:number;fans:number; }
 interface ReleaseFlowState {
   phase:"reviews"|"reaction"|"sales"|"summary";
-<<<<<<< HEAD
-=======
   gameId:string;
   marketGame:ActiveMarketGame;
->>>>>>> 6983f31 (Initial commit)
   reviewIndex:number;
   reviewSubPhase:"entering"|"rolling"|"settled";
   salesWeeks:SalesWeekData[];
@@ -298,21 +287,14 @@ interface ReleaseFlowState {
   reviewPhaseStartAt:number;
 }
 interface Bubble { id:number;text:string;color:string;svgX:number;svgY:number;born:number; }
-<<<<<<< HEAD
-interface ReleasedGame { name:string;score:number;revenue:number;fansGained:number;bugs:number;year:number;week:number;topic:Topic;genre:Genre;platform:Platform; }
-=======
 interface ReleasedGame { id:string;name:string;score:number;reviewScores:number[];revenue:number;fansGained:number;unitsSold:number;bugs:number;year:number;week:number;topic:Topic;genre:Genre;platform:Platform;status:"reviewing"|"active_on_market"|"finished";weeklySales:WeeklySalesPoint[];diagnosis:DiagFactor[]; }
->>>>>>> 6983f31 (Initial commit)
 interface DiscoveredCombo { topic:Topic;genre:Genre;platform:Platform;score:number;label:string; }
 interface DiagFactor { icon:string;text:string;sentiment:"pos"|"neu"|"neg"; }
 interface NextTarget { text:string;type:string; }
 interface ContractDef { name:string;client:string;payout:number;durationWeeks:number;difficulty:"Easy"|"Medium"|"Hard";fansBonus:number;icon:string; }
 interface ActiveContract { job:ContractDef;weeksLeft:number;weeksTotal:number; }
 interface StudioMenuItem { icon:string;label:string;action:string;disabled?:boolean;sub?:string; }
-<<<<<<< HEAD
-=======
 interface SalesLogRow { id:string;gameId:string;text:string;week:number;highlight:boolean; }
->>>>>>> 6983f31 (Initial commit)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: ISO HELPERS
@@ -486,11 +468,8 @@ export default function GarageScene() {
   const [upgrades,setUpgrades]   = useState<Set<string>>(new Set());
   const [history,setHistory]     = useState<ReleasedGame[]>([]);
   const [salesTail,setSalesTail] = useState<SalesTail|null>(null);
-<<<<<<< HEAD
-=======
   const [activeMarketGames,setActiveMarketGames] = useState<ActiveMarketGame[]>([]);
   const [salesLogRows,setSalesLogRows] = useState<SalesLogRow[]>([]);
->>>>>>> 6983f31 (Initial commit)
   const [bubbles,setBubbles]     = useState<Bubble[]>([]);
   const [reviewResult,setReviewResult] = useState<ReviewResult|null>(null);
   const [diagnosis,setDiagnosis] = useState<DiagFactor[]>([]);
@@ -531,10 +510,6 @@ export default function GarageScene() {
   const releaseFlowRef = useRef<ReleaseFlowState|null>(null);
   const reviewResultRef = useRef<ReviewResult|null>(null);
   const autoPlayIntervalRef = useRef<ReturnType<typeof setInterval>|null>(null);
-<<<<<<< HEAD
-  releaseFlowRef.current = releaseFlow;
-  reviewResultRef.current = reviewResult;
-=======
   const gameEventBusRef = useRef(createGameEventBus());
   const activeMarketGamesRef = useRef<ActiveMarketGame[]>([]);
   const historyRef = useRef<ReleasedGame[]>([]);
@@ -543,7 +518,6 @@ export default function GarageScene() {
   reviewResultRef.current = reviewResult;
   activeMarketGamesRef.current = activeMarketGames;
   historyRef.current = history;
->>>>>>> 6983f31 (Initial commit)
 
   // ── Form ──
   const [formName,setFormName]         = useState(makeTitle);
@@ -561,10 +535,7 @@ export default function GarageScene() {
   const [surveyAnswers,setSurveyAnswers] = useState({q1:0,q2:0,q3:0,q4:0,feedback:""});
   // ── Release cinematic state ──
   const [reviewDisplayScore,setReviewDisplayScore] = useState(0);
-<<<<<<< HEAD
-=======
   const [typingFrame,setTypingFrame] = useState(0);
->>>>>>> 6983f31 (Initial commit)
   const scoreRollIntervalRef = useRef<ReturnType<typeof setInterval>|null>(null);
 
   // ── Refs ──
@@ -596,19 +567,11 @@ export default function GarageScene() {
   currentTrendRef.current = currentTrend;
 
   // ── ISO anchors ──
-<<<<<<< HEAD
-  const charHead     = iso(5.5,5.0,2.45);
-  const monitorPos   = iso(4.73,5.1,2.3);
-  const bookshelfPos = iso(9.0,0.5,3.5);
-  const deskTop      = iso(4.25,5.1,1.9);
-  const computerPos  = iso(4.3,5.05,3.0);
-=======
   const charHead     = {x:930,y:520};
   const monitorPos   = {x:860,y:430};
   const bookshelfPos = {x:1305,y:390};
   const deskTop      = {x:850,y:505};
   const computerPos  = {x:860,y:430};
->>>>>>> 6983f31 (Initial commit)
 
   // ── Bubble spawner ──
   const spawnBubble = useCallback((text:string,color:string,svgX:number,svgY:number)=>{
@@ -621,8 +584,6 @@ export default function GarageScene() {
     track("point_bubble_spawned",{text});
   },[]);
 
-<<<<<<< HEAD
-=======
   function updateHistoryFromMarketGame(game: ActiveMarketGame) {
     setHistory(prev=>prev.map(g=>g.id===game.id?{
       ...g,
@@ -710,7 +671,6 @@ export default function GarageScene() {
     };
   },[spawnBubble]);
 
->>>>>>> 6983f31 (Initial commit)
   // ── Window helpers ──
   useEffect(()=>{
     track("session_start",{});
@@ -762,8 +722,6 @@ export default function GarageScene() {
         console.log(`Sales weeks viewed: ${analytics.salesWeeksViewed}`);
         console.log(`Skipped sales: ${analytics.skippedSales}`);
         console.log(`Auto-played sales: ${analytics.autoPlayedSales}`);
-<<<<<<< HEAD
-=======
         console.log(`Games entered market: ${analytics.marketGamesEntered}`);
         console.log(`Games finished sales tail: ${analytics.marketGamesFinished}`);
         console.log(`Total sales weeks simulated: ${analytics.totalSalesWeeksSimulated}`);
@@ -773,7 +731,6 @@ export default function GarageScene() {
         console.log(`Highest weekly sales: ${analytics.highestWeeklySales.toLocaleString()} units`);
         console.log(`Best total revenue: $${analytics.bestTotalRevenue.toLocaleString()}`);
         console.log(`Best units sold: ${analytics.bestUnitsSold.toLocaleString()}`);
->>>>>>> 6983f31 (Initial commit)
         console.groupEnd();
         console.group("[Market Trends]");
         console.log(`Trends seen this session: ${analytics.trendsSeen}`);
@@ -830,14 +787,11 @@ export default function GarageScene() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
-<<<<<<< HEAD
-=======
   useEffect(()=>{
     const id = setInterval(()=>setTypingFrame(frame=>frame+1),420);
     return ()=>clearInterval(id);
   },[]);
 
->>>>>>> 6983f31 (Initial commit)
   // ── New project closed without starting ──
   useEffect(()=>{
     if(showNewGame){
@@ -937,38 +891,25 @@ export default function GarageScene() {
       } else if(sub==="rolling"){
         const finalScore=idx>=4?(reviewResultRef.current?.score??5):(reviewResultRef.current?.reviewers[idx]?.score??5);
         setReviewDisplayScore(finalScore);
-<<<<<<< HEAD
-=======
         track("review_score_final_landed",{gameId:cur.gameId,index:idx,score:finalScore});
->>>>>>> 6983f31 (Initial commit)
         setReleaseFlow(f=>f?{...f,reviewSubPhase:"settled"}:f);
       } else {
         if(idx>=4){
           if(!cur.skippedReviews) analytics.watchedReviewsWithoutSkip=true;
-<<<<<<< HEAD
-          const score=reviewResultRef.current?.score??0;
-          if(score>=7) setCelebrating(true);
-          track("all_reviews_revealed",{avgScore:score});
-=======
           analytics.watchedAutomaticReviewReveal=true;
           const score=reviewResultRef.current?.score??0;
           if(score>=7) setCelebrating(true);
           track("all_reviews_revealed",{avgScore:score});
           track("review_sequence_finished",{gameId:cur.gameId,avgScore:score});
           gameEventBusRef.current.emitGameEvent({type:"review_sequence_finished",gameId:cur.gameId});
->>>>>>> 6983f31 (Initial commit)
           setReleaseFlow(f=>f?{...f,phase:"reaction"}:f);
         } else {
           const nextIdx=idx+1;
           if(analytics.reviewsRevealed===0) analytics.firstReviewRevealed=Date.now();
           analytics.reviewsRevealed++;
-<<<<<<< HEAD
-          track("review_revealed",{index:idx,outlet:reviewResultRef.current?.reviewers[idx]?.outlet});
-=======
           const reviewer = reviewResultRef.current?.reviewers[idx];
           if(reviewer) gameEventBusRef.current.emitGameEvent({type:"review_revealed",gameId:cur.gameId,outlet:reviewer.outlet,score:reviewer.score});
           track("review_revealed",{gameId:cur.gameId,index:idx,outlet:reviewer?.outlet,score:reviewer?.score});
->>>>>>> 6983f31 (Initial commit)
           if(nextIdx>=4){
             track("review_average_revealed",{avg:reviewResultRef.current?.score});
             setReleaseFlow(f=>f?{...f,reviewIndex:4,reviewSubPhase:"entering"}:f);
@@ -990,16 +931,6 @@ export default function GarageScene() {
     }
     const idx=releaseFlow.reviewIndex;
     const target=idx>=4?(reviewResultRef.current?.score??5):(reviewResultRef.current?.reviewers[idx]?.score??5);
-<<<<<<< HEAD
-    let elapsed=0;
-    const TICK=90, DURATION=1350;
-    const id=setInterval(()=>{
-      elapsed+=TICK;
-      if(elapsed>=DURATION-TICK){setReviewDisplayScore(target);clearInterval(id);scoreRollIntervalRef.current=null;return;}
-      const spread=Math.max(0.5,(1-elapsed/DURATION)*2.2);
-      setReviewDisplayScore(Math.round(Math.max(1.0,Math.min(10.0,target+(Math.random()-0.5)*spread))*10)/10);
-    },TICK);
-=======
     const frames=generateScoreRollFrames(target);
     let frameIndex=0;
     track("review_score_roll_started",{gameId:releaseFlow.gameId,index:idx,target});
@@ -1010,7 +941,6 @@ export default function GarageScene() {
       setReviewDisplayScore(next);
       if(frameIndex>=frames.length-1){clearInterval(id);scoreRollIntervalRef.current=null;}
     },220);
->>>>>>> 6983f31 (Initial commit)
     scoreRollIntervalRef.current=id;
     return ()=>{clearInterval(id);scoreRollIntervalRef.current=null;};
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1030,31 +960,7 @@ export default function GarageScene() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[releaseFlow?.salesPaused,releaseFlow?.salesSpeed,releaseFlow?.phase]);
 
-<<<<<<< HEAD
-  // ── Release flow: keyboard navigation ──
-  useEffect(()=>{
-    if(!releaseFlow) return;
-    function onKey(e:KeyboardEvent){
-      if(e.isComposing) return;
-      const flow=releaseFlowRef.current;
-      if(!flow) return;
-      if(e.key===" "||e.key==="Enter"){
-        e.preventDefault();
-        if(flow.phase==="reviews") fastForwardReview();
-        else if(flow.phase==="reaction") handleStartSalesPhase();
-      }
-      if(e.key==="Escape"){
-        if(flow.phase==="reviews") skipReviews();
-        else if(flow.phase==="sales"||flow.phase==="summary") handleSkipToSummary();
-      }
-    }
-    window.addEventListener("keydown",onKey);
-    return ()=>window.removeEventListener("keydown",onKey);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[releaseFlow?.phase]);
-=======
   // Release reviews are intentionally automatic; no click-through or shortcut path.
->>>>>>> 6983f31 (Initial commit)
 
   // ── Main simulation tick ──
   useEffect(()=>{
@@ -1126,22 +1032,6 @@ export default function GarageScene() {
         });
       }
 
-<<<<<<< HEAD
-      // Sales tail
-      const tail = salesRef.current;
-      if(tail&&tail.weeksLeft>0){
-        const elapsed = tail.weeksTotal-tail.weeksLeft;
-        const decay   = 0.72+tail.score*0.012;
-        const wRev    = Math.floor(tail.baseRevenue*Math.pow(decay,elapsed));
-        const wFans   = Math.floor(tail.baseFans*Math.pow(decay,elapsed));
-        setCash(c=>c+wRev);
-        setFans(f=>f+wFans);
-        setSalesTail(s=>s?{...s,weeksLeft:s.weeksLeft-1}:null);
-        setToast(`${tail.gameName}: +$${wRev.toLocaleString()} this week`);
-        spawnBubble(`$${wRev.toLocaleString()}`,"#22c55e",deskTop.x,deskTop.y-20);
-        track("sales_tick",{revenue:wRev});
-        setTimeout(()=>setToast(null),3500);
-=======
       // Active market sales tick
       const marketGames = activeMarketGamesRef.current;
       if(marketGames.some(g=>g.status==="active_on_market")){
@@ -1153,7 +1043,6 @@ export default function GarageScene() {
         for(const event of result.events){
           gameEventBusRef.current.emitGameEvent(event);
         }
->>>>>>> 6983f31 (Initial commit)
       }
 
       // Random events
@@ -1297,13 +1186,10 @@ export default function GarageScene() {
     releaseReadyFired.current = false;
     newGameProjectStartedRef.current = true;
     analytics.gamesStarted++;
-<<<<<<< HEAD
-=======
     if(activeMarketGamesRef.current.some(g=>g.status==="active_on_market")){
       analytics.startedProjectWhileGameSelling = true;
       track("player_started_new_project_while_previous_game_selling",{activeGames:activeMarketGamesRef.current.filter(g=>g.status==="active_on_market").length});
     }
->>>>>>> 6983f31 (Initial commit)
     const p:Project = {name:formName||makeTitle(),topic:formTopic,genre:formGenre,platform:formPlatform,design:0,tech:0,bugs:0,progress:0,research:0,hype:0};
     setProject(p);
     setPhase("developing");
@@ -1333,11 +1219,6 @@ export default function GarageScene() {
   function releaseGame(){
     if(!project) return;
     if(!analytics.firstReleaseClicked) analytics.firstReleaseClicked = Date.now();
-<<<<<<< HEAD
-    const result = generateReview(project, upgrades, currentTrend);
-    const diag   = buildDiagnosis(project, result, upgrades);
-    const tgt    = buildNextTarget(result, history, fansRef.current);
-=======
     const gameId = `game-${Date.now()}-${Math.floor(Math.random()*10000)}`;
     const result = generateReview(project, upgrades, currentTrend);
     const diag   = buildDiagnosis(project, result, upgrades);
@@ -1356,7 +1237,6 @@ export default function GarageScene() {
       fansAtRelease: fansRef.current,
       marketTrendMultiplier: result.trendMatched ? (currentTrend?.salesMultiplier ?? 1) : 1,
     });
->>>>>>> 6983f31 (Initial commit)
 
     setReviewResult(result);
     setDiagnosis(diag);
@@ -1373,12 +1253,6 @@ export default function GarageScene() {
       return [...prev,{topic:project.topic,genre:project.genre,platform:project.platform,score:result.score,label}];
     });
 
-<<<<<<< HEAD
-    // Generate week-by-week sales for the release flow
-    const salesWeeks = generateSalesWeeks(result);
-
-    const newGame:ReleasedGame = {name:project.name,score:result.score,revenue:result.revenue,fansGained:result.fansGained,bugs:Math.floor(project.bugs),year,week,topic:project.topic,genre:project.genre,platform:project.platform};
-=======
     const newGame:ReleasedGame = {
       id: gameId,
       name: project.name,
@@ -1397,24 +1271,14 @@ export default function GarageScene() {
       weeklySales: [],
       diagnosis: diag,
     };
->>>>>>> 6983f31 (Initial commit)
     setHistory(h=>{
       const newH = [...h, newGame];
       // analytics comparisons
       analytics.totalGamesReleased = newH.length;
       if(result.score > analytics.bestScore){ analytics.bestScore = result.score; }
-<<<<<<< HEAD
-      if(result.revenue > analytics.bestRevenue){ analytics.bestRevenue = result.revenue; }
-      if(h.length > 0){
-        const prevBest = Math.max(...h.map(g=>g.score));
-        const prevRev  = Math.max(...h.map(g=>g.revenue));
-        if(result.score > prevBest)  { track("beat_previous_score",{score:result.score,prev:prevBest}); }
-        if(result.revenue > prevRev) { track("beat_previous_revenue",{revenue:result.revenue,prev:prevRev}); }
-=======
       if(h.length > 0){
         const prevBest = Math.max(...h.map(g=>g.score));
         if(result.score > prevBest)  { track("beat_previous_score",{score:result.score,prev:prevBest}); }
->>>>>>> 6983f31 (Initial commit)
         if(h.length === 1)           { track("second_game_released",{score:result.score}); }
       }
       return newH;
@@ -1423,10 +1287,6 @@ export default function GarageScene() {
     // Market trend tracking
     if(result.trendMatched){
       analytics.gamesMatchingTrend++;
-<<<<<<< HEAD
-      analytics.trendMatchedRevenue.push(result.revenue);
-=======
->>>>>>> 6983f31 (Initial commit)
       analytics.usedTrendAfterSeeing = true;
       track("trend_matched_by_project",{trendName:result.trendName,revBonus:result.trendRevenueBonus,scoreBonus:result.trendScoreBonus});
       track("trend_bonus_applied",{revenue:result.trendRevenueBonus,score:result.trendScoreBonus});
@@ -1447,34 +1307,22 @@ export default function GarageScene() {
     setShowComputer(false);
     if(!analytics.flags.releasedFirstGame){ analytics.firstRelease = Date.now(); }
     if(!analytics.flags.firstGameCompleted) track("first_game_completed",{score:result.score});
-<<<<<<< HEAD
-    track("game_released",{name:project.name,score:result.score,revenue:result.revenue});
-    analytics.releaseFlowStartedAt = Date.now();
-    track("release_flow_started",{score:result.score,weeks:salesWeeks.length});
-=======
     track("release_clicked",{gameId,name:project.name});
     track("game_released",{gameId,name:project.name,score:result.score});
     analytics.releaseFlowStartedAt = Date.now();
     track("release_flow_started",{gameId,score:result.score,weeks:marketGame.maxSalesWeeks});
     track("review_sequence_started",{gameId,score:result.score});
->>>>>>> 6983f31 (Initial commit)
     console.log(`[release] ${project.name} | score: ${result.score} | trendMatched:${result.trendMatched}`);
 
     // Initialise phased release flow
     setReviewDisplayScore(0);
     setReleaseFlow({
       phase:"reviews",
-<<<<<<< HEAD
-      reviewIndex:0,
-      reviewSubPhase:"entering",
-      salesWeeks,
-=======
       gameId,
       marketGame,
       reviewIndex:0,
       reviewSubPhase:"entering",
       salesWeeks:[],
->>>>>>> 6983f31 (Initial commit)
       salesIndex:0,
       runningRevenue:0,
       runningFans:0,
@@ -1576,11 +1424,6 @@ export default function GarageScene() {
   function handleStartSalesPhase(){
     const flow=releaseFlowRef.current;
     if(!flow) return;
-<<<<<<< HEAD
-    track("sales_phase_started",{weeks:flow.salesWeeks.length});
-    setCelebrating(false);
-    setReleaseFlow({...flow,phase:"sales"});
-=======
     const nextGames = [...activeMarketGamesRef.current, flow.marketGame];
     activeMarketGamesRef.current = nextGames;
     setActiveMarketGames(nextGames);
@@ -1598,7 +1441,6 @@ export default function GarageScene() {
     setFocusMode(null);
     if(tutorialStep==="release")  setTutorialStep("upgrade");
     if(tutorialStep==="beat")     setTutorialStep("done");
->>>>>>> 6983f31 (Initial commit)
   }
 
   function handleNextSalesWeek(){
@@ -1721,8 +1563,6 @@ export default function GarageScene() {
   const bugCount       = Math.min(5,Math.ceil((project?.bugs??0)/8));
   const projectStatus  = !project?"":project.progress>=100?"Ready to Release":project.progress>=75?"Polishing":project.progress>=25?"In Development":"Planning";
   const lastGame       = history.length>0?history[history.length-1]:null;
-<<<<<<< HEAD
-=======
   const marketFeedGames = activeMarketGames
     .filter(g=>g.status==="active_on_market"||g.weeklySales.length>0)
     .slice(-3)
@@ -1759,7 +1599,6 @@ export default function GarageScene() {
     height:`${(height/PNG_SCENE_HEIGHT)*100}%`,
     zIndex:z,
   });
->>>>>>> 6983f31 (Initial commit)
 
   // Active upgrade bonuses label
   const activeBonuses: string[] = [];
@@ -1845,11 +1684,6 @@ export default function GarageScene() {
         .release-pulse { animation: releasePulse 1.2s ease-in-out infinite; }
         .pill-appear { animation: pillFadeIn 0.3s ease-out both; }
         .hover-label { animation: hoverLabelIn 0.15s ease-out both; }
-<<<<<<< HEAD
-      `}</style>
-
-      {/* ── SVG SCENE ─────────────────────────────────────────────────────── */}
-=======
         .garage-png-scene { filter: drop-shadow(0 26px 28px rgba(96, 64, 24, .20)); }
         .scene-layer { position:absolute; height:auto; pointer-events:none; user-select:none; -webkit-user-drag:none; }
         .scene-hitbox { position:absolute; appearance:none; border:0; padding:0; margin:0; background:transparent; cursor:pointer; }
@@ -2068,7 +1902,6 @@ export default function GarageScene() {
 
       {/* ── LEGACY SVG SCENE (hidden after PNG asset migration) ───────────── */}
       {false && (
->>>>>>> 6983f31 (Initial commit)
       <div className="absolute inset-0 flex items-center justify-center pt-12">
         <svg viewBox="0 0 800 600" className="w-full h-full max-h-[88vh] drop-shadow-xl" preserveAspectRatio="xMidYMid meet">
 
@@ -2220,19 +2053,11 @@ export default function GarageScene() {
           {working&&project&&(
             <g>
               <rect x={iso(4.3,4.2,2.85).x-40} y={iso(4.3,4.2,2.85).y-8} width={80} height={8} rx={4} fill="#33333366"/>
-<<<<<<< HEAD
-              <rect x={iso(4.3,4.2,2.85).x-40} y={iso(4.3,4.2,2.85).y-8} width={project.progress*0.8} height={8} rx={4}
-                fill={project.progress>=100?"#22c55e":"#f59e0b"}/>
-              <text x={iso(4.3,4.2,2.85).x} y={iso(4.3,4.2,2.85).y-12}
-                textAnchor="middle" fontSize="9" fill="#fff" fontWeight="bold" stroke="#00000066" strokeWidth="1" paintOrder="stroke">
-                {project.name} {Math.floor(project.progress)}%
-=======
               <rect x={iso(4.3,4.2,2.85).x-40} y={iso(4.3,4.2,2.85).y-8} width={(project?.progress??0)*0.8} height={8} rx={4}
                 fill={(project?.progress??0)>=100?"#22c55e":"#f59e0b"}/>
               <text x={iso(4.3,4.2,2.85).x} y={iso(4.3,4.2,2.85).y-12}
                 textAnchor="middle" fontSize="9" fill="#fff" fontWeight="bold" stroke="#00000066" strokeWidth="1" paintOrder="stroke">
                 {project?.name??""} {Math.floor(project?.progress??0)}%
->>>>>>> 6983f31 (Initial commit)
               </text>
             </g>
           )}
@@ -2297,16 +2122,6 @@ export default function GarageScene() {
           {/* ACTION BURST */}
           {actionBurst&&(
             <AnimatePresence>
-<<<<<<< HEAD
-              <motion.g key={actionBurst.key}
-                initial={{opacity:1,scale:0.5}} animate={{opacity:0,scale:2.5}} exit={{opacity:0}}
-                transition={{duration:0.6,ease:"easeOut"}}>
-                {actionBurst.type==="design"&&([0,60,120,180,240,300].map((a,i)=>{const r2=a*Math.PI/180;return<circle key={i} cx={charHead.x+Math.cos(r2)*22} cy={charHead.y+Math.sin(r2)*22} r={5} fill="#f59e0b"/>; }))}
-                {actionBurst.type==="tech"&&([0,45,90,135,180,225,270,315].map((a,i)=>{const r2=a*Math.PI/180;return<circle key={i} cx={monitorPos.x+Math.cos(r2)*20} cy={monitorPos.y+Math.sin(r2)*20} r={4} fill="#3b82f6"/>; }))}
-                {actionBurst.type==="fixBugs"&&(<circle cx={monitorPos.x} cy={monitorPos.y} r={36} fill="none" stroke="#22c55e" strokeWidth={3} opacity={0.8}/>)}
-                {actionBurst.type==="crunch"&&(<circle cx={computerPos.x} cy={computerPos.y} r={42} fill="none" stroke="#ef4444" strokeWidth={3} opacity={0.8}/>)}
-                {actionBurst.type==="research"&&([0,60,120,180,240,300].map((a,i)=>{const r2=a*Math.PI/180;return<circle key={i} cx={bookshelfPos.x+Math.cos(r2)*22} cy={bookshelfPos.y+Math.sin(r2)*22} r={5} fill="#a855f7"/>; }))}
-=======
               <motion.g key={actionBurst?.key}
                 initial={{opacity:1,scale:0.5}} animate={{opacity:0,scale:2.5}} exit={{opacity:0}}
                 transition={{duration:0.6,ease:"easeOut"}}>
@@ -2315,7 +2130,6 @@ export default function GarageScene() {
                 {actionBurst?.type==="fixBugs"&&(<circle cx={monitorPos.x} cy={monitorPos.y} r={36} fill="none" stroke="#22c55e" strokeWidth={3} opacity={0.8}/>)}
                 {actionBurst?.type==="crunch"&&(<circle cx={computerPos.x} cy={computerPos.y} r={42} fill="none" stroke="#ef4444" strokeWidth={3} opacity={0.8}/>)}
                 {actionBurst?.type==="research"&&([0,60,120,180,240,300].map((a,i)=>{const r2=a*Math.PI/180;return<circle key={i} cx={bookshelfPos.x+Math.cos(r2)*22} cy={bookshelfPos.y+Math.sin(r2)*22} r={5} fill="#a855f7"/>; }))}
->>>>>>> 6983f31 (Initial commit)
               </motion.g>
             </AnimatePresence>
           )}
@@ -2353,11 +2167,7 @@ export default function GarageScene() {
           {/* Desk hitbox */}
           <polygon
             points={`${iso(3.0,3.0,1.72).x},${iso(3.0,3.0,1.72).y} ${iso(5.5,3.0,1.72).x},${iso(5.5,3.0,1.72).y} ${iso(5.5,7.2,1.72).x},${iso(5.5,7.2,1.72).y} ${iso(3.0,7.2,1.72).x},${iso(3.0,7.2,1.72).y}`}
-<<<<<<< HEAD
-            fill="transparent" style={{cursor:phase==="idle"?"default":"pointer"}}
-=======
             fill="transparent" style={{cursor:phase==="idle"?"default":"pointer",pointerEvents:"none"}}
->>>>>>> 6983f31 (Initial commit)
             onMouseEnter={()=>onObjectHover("desk")} onMouseLeave={()=>onObjectHover(null)}/>
           {/* Developer character hitbox */}
           <polygon
@@ -2411,15 +2221,9 @@ export default function GarageScene() {
           {/* ── CLICK RIPPLE ── */}
           <AnimatePresence>
             {clickRipple&&(
-<<<<<<< HEAD
-              <motion.circle key={clickRipple.id}
-                cx={clickRipple.x} cy={clickRipple.y} r={8}
-                fill="none" stroke={clickRipple.color} strokeWidth={2.5}
-=======
               <motion.circle key={clickRipple?.id}
                 cx={clickRipple?.x??0} cy={clickRipple?.y??0} r={8}
                 fill="none" stroke={clickRipple?.color??"#f59e0b"} strokeWidth={2.5}
->>>>>>> 6983f31 (Initial commit)
                 initial={{r:8,opacity:0.85}} animate={{r:46,opacity:0}}
                 exit={{opacity:0}} transition={{duration:0.52,ease:"easeOut"}}/>
             )}
@@ -2454,10 +2258,7 @@ export default function GarageScene() {
 
         </svg>
       </div>
-<<<<<<< HEAD
-=======
       )}
->>>>>>> 6983f31 (Initial commit)
 
       {/* ── STATUS CARD (top-left) ─────────────────────────────────────────── */}
       <div className="absolute top-3 left-3 z-20 pointer-events-none">
@@ -2538,8 +2339,6 @@ export default function GarageScene() {
         )}
       </AnimatePresence>
 
-<<<<<<< HEAD
-=======
       {/* ── LIVE SALES FEED ──────────────────────────────────────────────── */}
       <AnimatePresence>
         {marketFeedGames.length>0&&(
@@ -2636,7 +2435,6 @@ export default function GarageScene() {
         )}
       </AnimatePresence>
 
->>>>>>> 6983f31 (Initial commit)
       {/* ── UPGRADE BOUGHT TOAST ──────────────────────────────────────────── */}
       <AnimatePresence>
         {lastBuyMessage&&(
@@ -2811,21 +2609,14 @@ export default function GarageScene() {
                             <div className="font-black text-sm text-gray-900 truncate">{g.name}</div>
                             <div className="text-[10px] text-gray-400">{g.topic} · {g.genre} · {g.platform}</div>
                             <div className="text-[10px] text-gray-300">Y{g.year} W{g.week}</div>
-<<<<<<< HEAD
-=======
                             <div className={`text-[9px] font-black mt-1 ${g.status==="finished"?"text-gray-400":g.status==="active_on_market"?"text-green-600":"text-amber-500"}`}>
                               {g.status==="finished"?"Finished":g.status==="active_on_market"?"Active on market":"In review"}
                             </div>
->>>>>>> 6983f31 (Initial commit)
                           </div>
                           <div className="text-right shrink-0">
                             <div className={`text-xl font-black ${g.score>=7?"text-green-600":g.score>=5?"text-amber-500":"text-red-500"}`}>{g.score}<span className="text-sm font-normal text-gray-300">/10</span></div>
                             <div className="text-[10px] text-green-600 font-bold">${g.revenue.toLocaleString()}</div>
                             <div className="text-[10px] text-violet-500">+{g.fansGained} fans</div>
-<<<<<<< HEAD
-                          </div>
-                        </div>
-=======
                             <div className="text-[10px] text-gray-400">{g.unitsSold.toLocaleString()} units</div>
                           </div>
                         </div>
@@ -2840,7 +2631,6 @@ export default function GarageScene() {
                             ))}
                           </div>
                         </details>
->>>>>>> 6983f31 (Initial commit)
                         {g.score===bestScore&&history.length>1&&(
                           <div className="mt-1 text-[9px] text-amber-500 font-black">⭐ Best score</div>
                         )}
@@ -3193,22 +2983,7 @@ export default function GarageScene() {
                       )}
                     </AnimatePresence>
 
-<<<<<<< HEAD
-                    {/* Controls */}
-                    <div className="flex gap-2">
-                      <button onClick={skipReviews}
-                        className="flex-1 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 text-[11px] font-bold transition-colors">
-                        Skip Reviews
-                      </button>
-                      <button onClick={fastForwardReview}
-                        className="flex-1 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 text-[11px] font-black transition-colors">
-                        ⏩ Fast Fwd
-                      </button>
-                    </div>
-                    <div className="text-center text-[9px] text-gray-700 mt-1.5">Space/Enter to fast-forward · Esc to skip all</div>
-=======
                     <div className="text-center text-[9px] text-gray-700 mt-1.5">Reviews continue automatically.</div>
->>>>>>> 6983f31 (Initial commit)
                   </div>
                 )}
 
@@ -3228,15 +3003,9 @@ export default function GarageScene() {
                     <motion.button initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.5}}
                       onClick={handleStartSalesPhase}
                       className="mt-4 w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-black text-sm active:scale-95">
-<<<<<<< HEAD
-                      See Sales →
-                    </motion.button>
-                    <div className="text-center text-[10px] text-gray-600 mt-2">Auto-continuing in 3s…</div>
-=======
                       Back to Garage
                     </motion.button>
                     <div className="text-center text-[10px] text-gray-600 mt-2">Sales start on the side panel in 3s...</div>
->>>>>>> 6983f31 (Initial commit)
                   </div>
                 )}
 
@@ -3512,14 +3281,11 @@ export default function GarageScene() {
                     reviewsRevealed:       analytics.reviewsRevealed,
                     salesWeeksViewed:      analytics.salesWeeksViewed,
                     skippedSales:          analytics.skippedSales,
-<<<<<<< HEAD
-=======
                     marketGamesEntered:    analytics.marketGamesEntered,
                     marketGamesFinished:   analytics.marketGamesFinished,
                     totalSalesWeeksSimulated: analytics.totalSalesWeeksSimulated,
                     highestWeeklySales:    analytics.highestWeeklySales,
                     bestUnitsSold:         analytics.bestUnitsSold,
->>>>>>> 6983f31 (Initial commit)
                     menuOpens:             analytics.menuOpens,
                     menuItemClicks:        analytics.menuItemClicks,
                   },
@@ -3540,13 +3306,10 @@ export default function GarageScene() {
                     watchedFullSalesTail:      analytics.watchedFullSalesTail,
                     releasePayoffCompleted:    analytics.releasePayoffCompleted,
                     releaseToSummaryMs:        analytics.releaseToSummaryMs,
-<<<<<<< HEAD
-=======
                     watchedAutomaticReviewReveal: analytics.watchedAutomaticReviewReveal,
                     sawLiveSalesFeed:          analytics.sawLiveSalesFeed,
                     startedProjectWhileGameSelling: analytics.startedProjectWhileGameSelling,
                     liveSalesProducedMoneyFans: analytics.liveSalesProducedMoneyFans,
->>>>>>> 6983f31 (Initial commit)
                   },
                   releases: history,
                   upgradesBought: [...upgrades],
@@ -3605,11 +3368,7 @@ export default function GarageScene() {
                           {([
                             [f.startedFirstProject,  "Started first project"],
                             [f.releasedFirstGame,     "Released first game"],
-<<<<<<< HEAD
-                            [analytics.reachedSummary,"Reached sales summary"],
-=======
                             [analytics.sawLiveSalesFeed,"Observed live sales feed"],
->>>>>>> 6983f31 (Initial commit)
                             [f.boughtUpgrade,         "Bought an upgrade"],
                             [f.startedSecondProject,  "Started second game"],
                             [analytics.menuOpens>0,   "Used global menu"],
@@ -3637,12 +3396,8 @@ export default function GarageScene() {
                             ["Dev actions",     analytics.actionsUsed],
                             ["Reviews seen",    analytics.reviewsRevealed],
                             ["Watched all reviews", analytics.watchedReviewsWithoutSkip?"yes":"no"],
-<<<<<<< HEAD
-                            ["Watched full sales", analytics.watchedFullSalesTail?"yes":"no"],
-=======
                             ["Sales weeks", analytics.totalSalesWeeksSimulated],
                             ["Highest week", analytics.highestWeeklySales>0?analytics.highestWeeklySales.toLocaleString():"—"],
->>>>>>> 6983f31 (Initial commit)
                             ["Release→summary", analytics.releaseToSummaryMs!==null?Math.round(analytics.releaseToSummaryMs/1000)+"s":"—"],
                           ] as [string,string|number][]).map(([label,val])=>(
                             <div key={label} className="bg-gray-900 rounded-lg px-2.5 py-2 text-center">
@@ -3653,8 +3408,6 @@ export default function GarageScene() {
                         </div>
                       </div>
 
-<<<<<<< HEAD
-=======
                       {/* Live release loop */}
                       <div>
                         <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Live Release Loop</div>
@@ -3674,7 +3427,6 @@ export default function GarageScene() {
                         </div>
                       </div>
 
->>>>>>> 6983f31 (Initial commit)
                       {/* Confusion signals */}
                       <div>
                         <div className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Confusion Signals</div>

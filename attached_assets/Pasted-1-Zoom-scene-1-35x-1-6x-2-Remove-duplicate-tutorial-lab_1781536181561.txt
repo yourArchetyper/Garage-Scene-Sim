@@ -1,0 +1,241 @@
+1. Zoom scene 1.35x–1.6x
+2. Remove duplicate tutorial label
+3. Add contact shadows under desk/player/shelf
+4. Animate player states
+5. Animate monitor glow
+6. Add small ambient props/motion
+7. Make computer and shelf clearly interactive
+8. Keep all existing logic untouched
+Prompt pre Codex
+Rework the current PNG garage scene for better game feel, staging, and visual depth.
+
+Do not add new gameplay systems.
+Do not add save/load, employees, offices, publishers, custom engines, research trees, new contracts, or new market systems.
+
+This pass is only about visual staging, animation, and feedback using the existing PNG assets in /Garage-Scene-Sim-main/assets.
+
+Current problem:
+The PNG scene looks better than the old SVG version, but it still feels like a small static diorama in a huge empty beige space. The garage is too small, the tutorial hints are too intrusive/duplicated, and the character/scene do not feel alive enough.
+
+Goal:
+Make the first screen feel like a living tycoon game scene within 5 seconds.
+
+1. Improve scene scale and composition
+
+The garage currently appears too small on the screen.
+
+Change layout so:
+- the garage scene occupies roughly 60–75% of the viewport width on desktop
+- the scene is centered but slightly lower than absolute center
+- the right-side live sales panel still has space
+- the top-left HUD does not overlap the scene
+- the scene scales down responsively on smaller screens
+
+Suggested CSS:
+- increase garage scene base width/height or apply transform: scale(...)
+- use transform-origin: center center
+- avoid leaving massive empty beige space around the room
+
+Do not crop important objects.
+
+2. Remove duplicate tutorial hints
+
+There should not be both:
+- “Click the computer to start your first game”
+and
+- “Try the computer.”
+
+Keep only one clear first-time cue.
+
+Preferred:
+- top-right objective pill says “Start your first game”
+- computer has subtle glow
+- one small tooltip near monitor says “Click computer”
+
+Remove large duplicate tooltip near the player/desk.
+
+After first computer click:
+- hide computer tutorial permanently
+- keep only contextual/objective guidance
+
+3. Improve object affordance
+
+Make the following objects clearly interactive:
+- computer
+- developer
+- bookshelf/upgrades
+- desk
+- empty floor/global menu
+
+For each:
+- cursor pointer on hover
+- subtle outline/glow matching the PNG object bounds
+- small hover label above object
+- click pulse/ripple
+- forgiving invisible hitbox
+
+Do not rely on PNG alpha for click detection.
+
+4. Add proper contact shadows
+
+Add soft shadow elements under:
+- desk
+- developer/chair
+- bookshelf
+- storage cabinet
+- coffee station
+- rug/floor mat if needed
+
+Use CSS div shadows or PNG shadow overlays.
+
+Rules:
+- shadows should be subtle
+- no heavy black drop shadows
+- shadows should anchor objects to the floor
+- do not make the scene muddy
+
+5. Animate developer states
+
+Use the existing player PNG files.
+
+Map current game state to developer sprite:
+
+- no project active: idle
+- project active: typing/working animation
+- project active + low energy: tired
+- after bad review or weak sales: worried
+- after good review or strong sales: celebrating
+- after rest action: coffee/resting
+- while choosing project or idle after release: thinking
+
+If multiple typing frames exist:
+- alternate them every 300–500ms while active project is developing
+
+If celebration frames exist:
+- briefly swap to celebration after:
+  - good review
+  - sales milestone
+  - new best score
+  - revenue record
+
+If worried/tired frames exist:
+- briefly swap after:
+  - bad review
+  - low sales
+  - low energy
+  - many bugs
+
+6. Animate the computer/monitor
+
+The computer should feel like the main object.
+
+States:
+- first load: soft pulsing glow
+- active development: monitor flicker
+- focus tech: blue/green pulse
+- focus design: warm pulse
+- bugs high: red/orange warning flicker
+- release ready: green release-ready pulse
+
+Use CSS classes based on existing state.
+
+Do not use a huge arrow as the primary solution.
+
+7. Restore “work happening” feedback
+
+During active development:
+- spawn Design / Tech / Bug / Research / Hype bubbles from correct PNG object positions
+- project progress strip appears near the monitor
+- project pill appears top-center
+- release-ready badge appears above/near monitor
+
+Ensure bubble anchor points are updated for the new PNG scene coordinates.
+
+Examples:
+- Design bubbles near developer/desk
+- Tech bubbles near monitor
+- Bug bubbles near monitor
+- Research bubbles near bookshelf
+- Hype bubbles above scene/developer
+
+8. Improve garage life without adding systems
+
+Add ambient visual details using existing assets where available:
+- lamp glow
+- coffee mug
+- notes/papers
+- boxes
+- plant
+- poster
+- storage cabinet
+- subtle dust/light particles
+- tiny clock/fan animation if asset exists
+
+Do not overcrowd.
+Do not create new gameplay logic.
+
+9. Improve right-side live sales panel integration
+
+Keep the sales panel, but make it feel more like an in-game live market ticker.
+
+Visual changes:
+- slightly stronger “LIVE SALES” header
+- active game card should have a live dot when selling
+- newest chart bar pulses
+- latest sales ticker row slides in
+- finished games fade slightly
+- big revenue number should stand out more
+
+Do not turn it into a spreadsheet.
+
+10. Preserve existing logic
+
+Do not break:
+- project creation
+- development ticks
+- review reveal
+- live sales active_on_market
+- global studio menu
+- contracts
+- market trends
+- upgrades
+- playtest mode
+- printSessionSummary()
+- runSmokeTest()
+
+This is a visual/game-feel rework only.
+
+11. TypeScript and QA
+
+Run:
+pnpm run typecheck
+
+Fix all errors.
+
+Manual QA:
+- fresh reload
+- garage appears larger and more alive
+- only one first-time computer hint appears
+- computer glow attracts attention
+- click computer
+- start default project
+- developer switches to typing animation
+- bubbles appear from correct positions
+- release-ready badge appears correctly
+- release game
+- review reaction changes developer state
+- live sales panel updates
+- buy upgrade
+- shelf/upgrade affordance is clear
+- start second game
+
+12. Deliverable
+
+Return updated code.
+
+Also report:
+- which PNG assets were used
+- which scene elements were rescaled/repositioned
+- which old SVG/tutorial elements were removed
+- typecheck result
+- manual QA result
