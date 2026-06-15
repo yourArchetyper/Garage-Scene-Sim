@@ -1,0 +1,72 @@
+Add a lightweight global studio menu that opens when the player clicks on empty floor/background space in the garage scene.
+
+Goal:
+Give the player a simple “command menu” similar in function to classic dev tycoon games, without adding too much complexity.
+
+Requirements:
+
+1. Open behavior
+- Clicking empty scene/background opens a small dropdown menu near the cursor.
+- Clicking interactive objects should still open their object-specific panel and must not trigger the global menu.
+- Clicking outside closes the menu.
+- Clamp menu position to viewport.
+
+2. Menu items
+When no project is active, show:
+- Develop New Game
+- Find Contract Work
+- Game History
+- Create Custom Engine (disabled / locked)
+- Find Publishing Deal (disabled / locked)
+
+When a project is active and not finished, show:
+- Continue Development
+- View Current Project
+- Game History
+
+When project progress is 100%, show:
+- Release Game
+- View Current Project
+- Game History
+
+3. Menu style
+- Compact dropdown panel
+- Small icon on the left of each item
+- Hover highlight
+- Disabled items styled clearly
+- Keyboard accessible
+- Escape closes
+- Arrow keys move selection
+- Enter activates
+
+4. Actions
+- Develop New Game opens the existing New Project panel directly
+- Continue Development opens the existing computer/project actions panel
+- Release Game triggers the existing release flow
+- Find Contract Work opens a minimal contract-work modal with 2–3 simple contract jobs
+- Game History opens a compact history modal listing released games with score and revenue
+
+5. Contract Work MVP
+- Each contract has:
+  - name
+  - payout
+  - duration in weeks
+  - difficulty
+- Completing contract grants money and a small amount of fans or experience
+- Keep this simple; no large system yet
+
+6. Preserve current scene-first UI
+- Do not add a permanent bottom HUD
+- Do not add a large dashboard
+- Keep the menu contextual and lightweight
+
+7. Analytics
+Track:
+- global_menu_opened
+- global_menu_item_clicked
+- contract_work_opened
+- contract_work_started
+- game_history_opened
+
+Deliverable:
+Return the complete updated HTML file with embedded CSS and JS.

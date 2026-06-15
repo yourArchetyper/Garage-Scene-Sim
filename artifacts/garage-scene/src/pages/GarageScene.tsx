@@ -27,6 +27,9 @@ const analytics = {
   skippedSales: false,
   autoPlayedSales: false,
   reachedSummary: false,
+  menuOpens: 0,
+  contractsStarted: 0,
+  contractsCompleted: 0,
   panelsOpened: 0,
   actionsUsed: 0,
   bubblesSpawned: 0,
@@ -148,6 +151,15 @@ const TREND_POOL: Omit<MarketTrendDef,"startsWeek"|"endsWeek">[] = [
   {id:"horror_action",   type:"combo",    topic:"Horror",  genre:"Action",      title:"Horror Action Wave",    description:"Horror Action mashups are trending everywhere.",          salesMultiplier:1.38, reviewBonus:0.30},
   {id:"detective_adv",   type:"combo",    topic:"Detective",genre:"Adventure",  title:"Detective Adventure",   description:"Mystery adventures are the talk of gaming circles.",      salesMultiplier:1.35, reviewBonus:0.25},
 ];
+const CONTRACT_POOL: ContractDef[] = [
+  {name:"Jingle Port",      client:"RadioFX Ltd",      payout:400,  durationWeeks:4,  difficulty:"Easy",   fansBonus:10, icon:"🎵"},
+  {name:"Arcade Port",      client:"Pixel Palace",     payout:600,  durationWeeks:5,  difficulty:"Easy",   fansBonus:15, icon:"🕹️"},
+  {name:"School Quiz App",  client:"EduSoft Co",       payout:350,  durationWeeks:3,  difficulty:"Easy",   fansBonus:5,  icon:"📚"},
+  {name:"Shooter Port",     client:"BulletStorm Inc",  payout:900,  durationWeeks:7,  difficulty:"Medium", fansBonus:25, icon:"🚀"},
+  {name:"Business Sim",     client:"CorpSoft Ltd",     payout:800,  durationWeeks:7,  difficulty:"Medium", fansBonus:12, icon:"💼"},
+  {name:"Engine Overhaul",  client:"MythOS Studios",   payout:1400, durationWeeks:12, difficulty:"Hard",   fansBonus:40, icon:"⚔️"},
+  {name:"Multiplayer Rig",  client:"DevNet Labs",      payout:1100, durationWeeks:10, difficulty:"Hard",   fansBonus:30, icon:"🔗"},
+];
 const REVIEW_BLURBS: Record<string,string[]> = {
   high:["A genuine classic.","Couldn't put it down.","Memorable and fresh.","A must-play."],
   mid: ["Shows real promise.","Worth a look.","Decent effort.","Has its moments."],
@@ -213,6 +225,9 @@ interface ReleasedGame { name:string;score:number;revenue:number;fansGained:numb
 interface DiscoveredCombo { topic:Topic;genre:Genre;platform:Platform;score:number;label:string; }
 interface DiagFactor { icon:string;text:string;sentiment:"pos"|"neu"|"neg"; }
 interface NextTarget { text:string;type:string; }
+interface ContractDef { name:string;client:string;payout:number;durationWeeks:number;difficulty:"Easy"|"Medium"|"Hard";fansBonus:number;icon:string; }
+interface ActiveContract { job:ContractDef;weeksLeft:number;weeksTotal:number; }
+interface StudioMenuItem { icon:string;label:string;action:string;disabled?:boolean;sub?:string; }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: ISO HELPERS
@@ -411,6 +426,15 @@ export default function GarageScene() {
   const [missedClicks,setMissedClicks]   = useState(0);
   const missedClicksRef = useRef(0);
 
+  // ── Studio menu state ──
+  const [studioMenu,setStudioMenu]       = useState<{x:number;y:number}|null>(null);
+  const [menuSelectedIdx,setMenuSelectedIdx] = useState(0);
+  const [showContractWork,setShowContractWork] = useState(false);
+  const [contractJobs,setContractJobs]   = useState<ContractDef[]>([]);
+  const [activeContract,setActiveContract] = useState<ActiveContract|null>(null);
+  const activeContractRef = useRef<ActiveContract|null>(null);
+  activeContractRef.current = activeContract;
+
   // ── Release flow state ──
   const [releaseFlow,setReleaseFlow]   = useState<ReleaseFlowState|null>(null);
   const [showDiagnosis,setShowDiagnosis] = useState(false);
@@ -558,6 +582,26 @@ export default function GarageScene() {
     return ()=>window.removeEventListener("keydown",onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[showNewGame,formName,formTopic,formGenre,formPlatform]);
+
+  // ── Studio menu keyboard navigation ──
+  useEffect(()=>{
+    if(!studioMenu) return;
+    function onKey(e:KeyboardEvent){
+      if(e.isComposing) return;
+      const items=menuItemsRef.current;
+      if(e.key==="Escape"){ setStudioMenu(null); return; }
+      if(e.key==="ArrowDown"){ e.preventDefault(); setMenuSelectedIdx(i=>(i+1)%items.length); }
+      if(e.key==="ArrowUp"){ e.preventDefault(); setMenuSelectedIdx(i=>(i-1+items.length)%items.length); }
+      if(e.key==="Enter"){
+        e.preventDefault();
+        const item=items[menuSelectedIdx];
+        if(item&&!item.disabled) handleMenuAction(item.action);
+      }
+    }
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[studioMenu,menuSelectedIdx]);
 
   // ── Release flow: reaction phase auto-advance after 3 s ──
   useEffect(()=>{
@@ -744,6 +788,25 @@ export default function GarageScene() {
           if(t.hypeBonus && Math.random()<0.5){
             setProject(p=>p?{...p,hype:(p.hype??0)+Math.ceil(t.hypeBonus!/2)}:p);
           }
+        }
+      }
+
+      // ── Contract tick ──
+      const ac = activeContractRef.current;
+      if(ac){
+        const newLeft = ac.weeksLeft-1;
+        if(newLeft<=0){
+          setCash(c=>c+ac.job.payout);
+          setFans(f=>f+ac.job.fansBonus);
+          setActiveContract(null);
+          spawnBubble(`✓ $${ac.job.payout.toLocaleString()}`,"#22c55e",deskTop.x,deskTop.y-20);
+          if(ac.job.fansBonus>0) spawnBubble(`+${ac.job.fansBonus} fans`,"#a855f7",charHead.x,charHead.y-22);
+          setToast(`Contract complete: ${ac.job.name} · +$${ac.job.payout.toLocaleString()} · +${ac.job.fansBonus} fans`);
+          setTimeout(()=>setToast(null),5000);
+          analytics.contractsCompleted++;
+          track("contract_completed",{name:ac.job.name,payout:ac.job.payout,fans:ac.job.fansBonus});
+        } else {
+          setActiveContract(prev=>prev?{...prev,weeksLeft:newLeft}:null);
         }
       }
 
@@ -941,6 +1004,32 @@ export default function GarageScene() {
     if(tutorialStep==="beat")     setTutorialStep("done");
   }
 
+  // ── Studio menu handlers ──
+  function openContractWork(){
+    const pool=[...CONTRACT_POOL].sort(()=>Math.random()-0.5).slice(0,3);
+    setContractJobs(pool);
+    setShowContractWork(true);
+    track("contract_work_opened",{hasActive:!!activeContract});
+  }
+  function acceptContract(job:ContractDef){
+    setActiveContract({job,weeksLeft:job.durationWeeks,weeksTotal:job.durationWeeks});
+    setShowContractWork(false);
+    analytics.contractsStarted++;
+    track("contract_work_started",{name:job.name,payout:job.payout,weeks:job.durationWeeks});
+    setToast(`Contract started: ${job.name} · ${job.durationWeeks} weeks`);
+    setTimeout(()=>setToast(null),3500);
+  }
+  function handleMenuAction(action:string){
+    setStudioMenu(null);
+    track("global_menu_item_clicked",{action,phase});
+    if(action==="newGame")       { setShowNewGame(true); }
+    else if(action==="contractWork"){ openContractWork(); }
+    else if(action==="history")  { setShowHistory(true); track("game_history_opened",{games:history.length}); }
+    else if(action==="develop")  { setShowComputer(true); }
+    else if(action==="viewProject"){ setShowComputer(true); }
+    else if(action==="release")  { releaseGame(); }
+  }
+
   // ── Release flow handlers ──
   function handleReviewAdvance(){
     const flow = releaseFlowRef.current;
@@ -1056,6 +1145,29 @@ export default function GarageScene() {
     if(id==="research") { spawnBubble("Research ↑","#a855f7",bookshelfPos.x,bookshelfPos.y-20); }
   }
 
+  // ── Studio menu items (contextual) ──
+  const menuItems: StudioMenuItem[] = (()=>{
+    if(phase==="developing"&&(project?.progress??0)>=100) return [
+      {icon:"🚀",label:"Release Game",action:"release"},
+      {icon:"📊",label:"View Current Project",action:"viewProject"},
+      {icon:"📜",label:"Game History",action:"history"},
+    ];
+    if(phase==="developing") return [
+      {icon:"💻",label:"Continue Development",action:"develop"},
+      {icon:"📊",label:"View Current Project",action:"viewProject"},
+      {icon:"📜",label:"Game History",action:"history"},
+    ];
+    return [
+      {icon:"🎮",label:"Develop New Game",action:"newGame"},
+      {icon:"📋",label:"Find Contract Work",action:"contractWork"},
+      {icon:"📜",label:"Game History",action:"history"},
+      {icon:"🔧",label:"Create Custom Engine",action:"engine",disabled:true,sub:"Requires 3 released games"},
+      {icon:"🤝",label:"Find Publishing Deal",action:"publishing",disabled:true,sub:"Requires 50+ fans"},
+    ];
+  })();
+  const menuItemsRef = useRef(menuItems);
+  menuItemsRef.current = menuItems;
+
   // ── Derived ──
   const working        = phase==="developing";
   const tired          = energy<25;
@@ -1112,7 +1224,9 @@ export default function GarageScene() {
     <div className="relative w-full h-[100dvh] overflow-hidden bg-background select-none"
       onClick={e=>{
         const t=e.target as HTMLElement;
-        if(!t.closest("[data-panel]")){
+        const isPanel = !!t.closest("[data-panel]");
+        const isInteractive = !!t.closest("[data-interactive]");
+        if(!isPanel){
           setShowComputer(false);
           setShowShop(false);
           if(!analytics.flags.startedFirstProject){
@@ -1121,6 +1235,20 @@ export default function GarageScene() {
             setMissedClicks(missedClicksRef.current);
             track("missed_scene_click",{count:missedClicksRef.current});
           }
+        }
+        // Open/close studio menu on empty background clicks
+        if(!isPanel&&!isInteractive&&phase!=="releasing"){
+          if(studioMenu){
+            setStudioMenu(null);
+          } else {
+            const rect=(e.currentTarget as HTMLElement).getBoundingClientRect();
+            setStudioMenu({x:e.clientX-rect.left, y:e.clientY-rect.top});
+            setMenuSelectedIdx(0);
+            analytics.menuOpens++;
+            track("global_menu_opened",{phase});
+          }
+        } else if(studioMenu&&!isPanel){
+          setStudioMenu(null);
         }
       }}
     >
@@ -1519,6 +1647,22 @@ export default function GarageScene() {
         </div>
       </div>
 
+      {/* ── ACTIVE CONTRACT PILL ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {activeContract&&(
+          <motion.div initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}}
+            className="absolute top-3 z-20 pointer-events-none"
+            style={{left:"160px"}}>
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-amber-500/90 border border-amber-400 shadow text-white text-[10px] font-black backdrop-blur whitespace-nowrap">
+              <span>{activeContract.job.icon}</span>
+              <span className="max-w-[80px] truncate">{activeContract.job.name}</span>
+              <span className="opacity-75">·</span>
+              <span>{activeContract.weeksLeft}wk</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── PROJECT PILL (top-center) ──────────────────────────────────────── */}
       <AnimatePresence>
         {working&&project&&(
@@ -1650,24 +1794,182 @@ export default function GarageScene() {
         )}
       </AnimatePresence>
 
-      {/* ── HISTORY PANEL ─────────────────────────────────────────────────── */}
+      {/* ── STUDIO CONTEXT MENU ───────────────────────────────────────────── */}
+      <AnimatePresence>
+        {studioMenu&&phase!=="releasing"&&(
+          <motion.div
+            initial={{opacity:0,scale:0.92,y:-8}} animate={{opacity:1,scale:1,y:0}} exit={{opacity:0,scale:0.92,y:-8}}
+            transition={{duration:0.13,ease:"easeOut"}}
+            data-panel="studio-menu"
+            onClick={e=>e.stopPropagation()}
+            className="absolute z-50 bg-gray-900/95 backdrop-blur border border-gray-700 rounded-xl shadow-2xl overflow-hidden w-52"
+            style={{
+              left:`min(${studioMenu.x}px, calc(100% - 216px))`,
+              top:`min(${studioMenu.y}px, calc(100% - ${menuItems.length*48+12}px))`,
+            }}
+          >
+            <div className="px-3 pt-2.5 pb-1.5 border-b border-gray-700/60">
+              <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Studio Actions</div>
+            </div>
+            {menuItems.map((item,i)=>(
+              <button key={item.action}
+                disabled={item.disabled}
+                onClick={()=>handleMenuAction(item.action)}
+                onMouseEnter={()=>setMenuSelectedIdx(i)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
+                  item.disabled
+                    ?"opacity-35 cursor-not-allowed"
+                    :i===menuSelectedIdx
+                    ?"bg-amber-500 text-white"
+                    :"text-gray-200 hover:bg-gray-700/70"
+                }`}
+              >
+                <span className="text-[15px] leading-none">{item.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] font-semibold leading-tight">{item.label}</div>
+                  {item.disabled&&item.sub&&(
+                    <div className="text-[9px] opacity-60 mt-0.5">{item.sub}</div>
+                  )}
+                </div>
+              </button>
+            ))}
+            <div className="px-3 py-1.5 border-t border-gray-700/60">
+              <div className="text-[9px] text-gray-600">Esc to close · ↑↓ navigate · Enter select</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── HISTORY MODAL ─────────────────────────────────────────────────── */}
       <AnimatePresence>
         {showHistory&&(
-          <motion.div data-panel="history"
-            initial={{opacity:0,x:-60}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-60}}
-            className="absolute top-36 left-3 z-30 bg-white/97 backdrop-blur rounded-2xl shadow-xl border border-gray-200 p-4 w-[190px] max-h-[260px] overflow-y-auto"
-          >
-            <h3 className="text-[10px] font-black text-gray-600 uppercase tracking-wider mb-2">Games Released</h3>
-            {history.map((g,i)=>(
-              <div key={i} className="p-2 rounded-lg border border-gray-100 bg-gray-50 text-xs mb-1.5">
-                <div className="font-bold text-gray-800 truncate">{g.name}</div>
-                <div className="flex justify-between mt-0.5">
-                  <span className={`font-black ${g.score>=7?"text-green-600":g.score>=5?"text-amber-600":"text-red-500"}`}>{g.score}/10</span>
-                  <span className="text-green-600">${g.revenue.toLocaleString()}</span>
+          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+            className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={e=>{if(e.target===e.currentTarget)setShowHistory(false);}}>
+            <motion.div data-panel="history"
+              initial={{scale:0.9,y:20}} animate={{scale:1,y:0}} exit={{scale:0.9,y:20}}
+              transition={{type:"spring",damping:22}}
+              className="bg-white rounded-2xl shadow-2xl p-5 w-[370px] max-h-[80vh] overflow-y-auto border border-gray-100"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Studio Catalog</div>
+                  <div className="text-lg font-black text-gray-900">Game History</div>
                 </div>
-                {g.score===bestScore&&history.length>1&&<div className="text-[9px] text-amber-500 font-bold mt-0.5">⭐ Best</div>}
+                <button onClick={()=>setShowHistory(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
               </div>
-            ))}
+              {history.length===0?(
+                <div className="text-center py-8 text-gray-400">
+                  <div className="text-4xl mb-2">🎮</div>
+                  <div className="text-sm">No games released yet.</div>
+                  <div className="text-xs mt-1 text-gray-300">Start developing to build your catalog.</div>
+                </div>
+              ):(
+                <>
+                  <div className="flex flex-col gap-2">
+                    {[...history].reverse().map((g,i)=>(
+                      <div key={i} className="border border-gray-100 rounded-xl p-3 hover:border-gray-200 transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-black text-sm text-gray-900 truncate">{g.name}</div>
+                            <div className="text-[10px] text-gray-400">{g.topic} · {g.genre} · {g.platform}</div>
+                            <div className="text-[10px] text-gray-300">Y{g.year} W{g.week}</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className={`text-xl font-black ${g.score>=7?"text-green-600":g.score>=5?"text-amber-500":"text-red-500"}`}>{g.score}<span className="text-sm font-normal text-gray-300">/10</span></div>
+                            <div className="text-[10px] text-green-600 font-bold">${g.revenue.toLocaleString()}</div>
+                            <div className="text-[10px] text-violet-500">+{g.fansGained} fans</div>
+                          </div>
+                        </div>
+                        {g.score===bestScore&&history.length>1&&(
+                          <div className="mt-1 text-[9px] text-amber-500 font-black">⭐ Best score</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex gap-5 text-xs text-gray-500">
+                    <span>Games: <b className="text-gray-800">{history.length}</b></span>
+                    <span>Best: <b className="text-gray-800">{bestScore}/10</b></span>
+                    <span>Best rev: <b className="text-green-600">${bestRevenue.toLocaleString()}</b></span>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── CONTRACT WORK MODAL ────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showContractWork&&(
+          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+            className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={e=>{if(e.target===e.currentTarget)setShowContractWork(false);}}>
+            <motion.div data-panel="contract-work"
+              initial={{scale:0.9,y:20}} animate={{scale:1,y:0}} exit={{scale:0.9,y:20}}
+              transition={{type:"spring",damping:22}}
+              className="bg-white rounded-2xl shadow-2xl p-5 w-[380px] max-h-[85vh] overflow-y-auto border border-gray-100"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Freelance Board</div>
+                  <div className="text-lg font-black text-gray-900">Contract Work</div>
+                </div>
+                <button onClick={()=>setShowContractWork(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+              </div>
+
+              {activeContract&&(
+                <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3.5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">{activeContract.job.icon}</span>
+                    <div>
+                      <div className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Active Contract</div>
+                      <div className="font-black text-sm text-gray-900">{activeContract.job.name}</div>
+                      <div className="text-[10px] text-gray-500">{activeContract.job.client}</div>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <div className="text-xs font-black text-green-600">${activeContract.job.payout.toLocaleString()}</div>
+                      <div className="text-[10px] text-gray-400">{activeContract.weeksLeft}wk left</div>
+                    </div>
+                  </div>
+                  <div className="bg-amber-200/50 rounded-full h-2 overflow-hidden">
+                    <div className="bg-amber-500 h-2 rounded-full transition-all"
+                      style={{width:`${((activeContract.weeksTotal-activeContract.weeksLeft)/activeContract.weeksTotal)*100}%`}}/>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                {contractJobs.map((job,i)=>(
+                  <div key={i} className="border border-gray-100 rounded-xl p-3.5 hover:border-gray-200 transition-colors">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{job.icon}</span>
+                        <div>
+                          <div className="font-black text-sm text-gray-900">{job.name}</div>
+                          <div className="text-[10px] text-gray-400">{job.client}</div>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${job.difficulty==="Easy"?"bg-green-100 text-green-700":job.difficulty==="Medium"?"bg-amber-100 text-amber-700":"bg-red-100 text-red-700"}`}>
+                        {job.difficulty}
+                      </span>
+                    </div>
+                    <div className="flex gap-3 text-[10px] text-gray-500 mb-2.5">
+                      <span>💰 <b className="text-green-600">${job.payout.toLocaleString()}</b></span>
+                      <span>⏱ {job.durationWeeks} weeks</span>
+                      <span>👥 +{job.fansBonus} fans</span>
+                    </div>
+                    <button
+                      disabled={!!activeContract}
+                      onClick={()=>acceptContract(job)}
+                      className="w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs transition-colors active:scale-95">
+                      {activeContract?"Contract Active":"Accept Contract"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 text-[10px] text-gray-400 text-center">Contracts run in the background while you develop games.</div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
