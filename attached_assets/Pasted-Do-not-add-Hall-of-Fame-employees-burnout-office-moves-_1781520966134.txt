@@ -1,0 +1,224 @@
+Do not add Hall of Fame, employees, burnout, office moves, publishers, save/load, research trees, or any new large system yet.
+
+This pass is a bugfix/polish pass for core gameplay feedback.
+
+Current problems:
+
+1. Design / Tech / Bugs / Research bubbles are missing or not consistently appearing.
+2. Current project/game name is missing from the top-center area.
+3. The game still needs to feel alive while development is happening.
+
+Goal:
+Restore and improve the visual feedback layer so the player can immediately see:
+
+* what project is currently being developed
+* what kind of points are being generated
+* when bugs appear
+* when research/focus actions matter
+* when the game is ready to release
+
+1. Add a minimal top-center project pill
+
+Add a small top-center pill that appears only while a project exists.
+
+It should show:
+
+* Current project name
+* Current phase/status:
+
+  * Planning
+  * In Development
+  * Polishing
+  * Ready to Release
+* Progress percentage
+
+Example:
+“DragonByte RPG · In Development · 42%”
+
+Rules:
+
+* It must be compact.
+* It must not become a dashboard.
+* Do not add money/fans/energy there.
+* Keep money/fans/energy only in the tiny top-left status card.
+* Hide this pill when no project is active.
+
+2. Implement reliable floating point bubbles
+
+Create one reusable function:
+
+function spawnPointBubble(type, amount, x, y) {}
+
+Supported bubble types:
+
+* design
+* tech
+* bug
+* research
+* hype
+* money
+* fans
+
+Each bubble should have:
+
+* Different label text
+* Different CSS class
+* Small upward floating animation
+* Fade-out
+* Auto-remove from DOM after animation
+
+Examples:
+
+* Design +3
+* Tech +2
+* Bug +1
+* Research +1
+* Hype +2
+* Fans +8
+* $120
+
+3. Anchor bubbles to scene objects
+
+Bubbles should appear near the correct object:
+
+* Design bubbles near the character / desk
+* Tech bubbles near the monitor
+* Bug bubbles near the monitor or above the project strip
+* Research bubbles near bookshelf or computer
+* Hype/fans bubbles near the character or top of scene
+* Money bubbles near top-left cash area or above desk after sales
+
+Do not spawn all bubbles at random screen center.
+
+4. Call bubbles from weekly simulation
+
+In the weekly development tick, whenever points are generated, call spawnPointBubble.
+
+Example:
+
+* If designPoints += 3, show “Design +3”
+* If techPoints += 2, show “Tech +2”
+* If bugs += 1, show “Bug +1”
+* If hype += 1, show “Hype +1”
+
+This must happen automatically while the project is in development.
+
+5. Call bubbles from player actions
+
+When clicking development actions, show immediate feedback:
+
+Focus Design:
+
+* show several Design bubbles
+* update focus mode visibly
+
+Focus Tech:
+
+* show several Tech bubbles
+* monitor gets short glow pulse
+
+Fix Bugs:
+
+* show “Bug -2” or shrinking bug icons
+* remove/reduce visible bug indicators
+
+Crunch:
+
+* show Progress +X
+* show Bug +risk if bugs increase
+* red warning pulse around character
+
+Rest:
+
+* show Energy +X
+* character relaxes
+
+Research:
+
+* add or restore a Research action if missing
+* show Research +1/+2 bubbles
+* research should give a small bonus to the current or next project
+
+6. Add visible bug indicators
+
+When bugs are above 0:
+
+* Show tiny bug icons near the monitor/project strip.
+* More bugs = more icons, capped at 5 visible icons.
+* Fix Bugs should visibly remove some icons.
+* Release report should make it clear bugs hurt the score.
+
+7. Add project progress strip near the computer
+
+Keep the diegetic progress strip above/near the monitor.
+
+It should show:
+
+* project progress bar
+* percentage
+* release-ready visual state at 100%
+
+This is separate from the top-center project name pill.
+
+8. Ensure release-ready feedback is obvious
+
+When progress reaches 100%:
+
+* spawn “Ready!” bubble
+* project pill status changes to “Ready to Release”
+* computer gets subtle green pulse
+* contextual computer panel includes “Release Game!”
+* track release_ready only once per project
+
+9. Add CSS animations
+
+Add polished but lightweight CSS animations:
+
+* bubble float up and fade
+* bug wiggle
+* monitor pulse
+* release-ready pulse
+* top-center project pill fade-in
+* action burst
+
+No external libraries.
+
+10. Preserve current rules
+
+Do not reintroduce:
+
+* large center HUD
+* permanent bottom panel
+* spreadsheet UI
+* full-screen management dashboards
+
+Allowed persistent UI:
+
+* tiny top-left status card
+* tiny top-right objective pill
+* compact top-center project pill only while a project is active
+
+Everything else should be contextual, temporary, or attached to the isometric scene.
+
+11. Analytics
+
+Track these additional events:
+
+* point_bubble_spawned
+* bug_indicator_shown
+* project_pill_shown
+* research_gained
+* release_ready_visual_shown
+
+Do not spam console excessively; aggregate if needed.
+
+12. Deliverable
+
+Return the complete updated HTML file with embedded CSS and JS.
+It must run directly in browser.
+No external dependencies.
+No placeholder TODOs.
+No “next I can add...” summary instead of code.
+
+Success criteria:
+A new player should be able to watch the scene for 10 seconds during development and understand that Design, Tech, Bugs, Research, Hype, progress, and release readiness are actively changing.
