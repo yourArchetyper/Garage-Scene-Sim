@@ -1,0 +1,289 @@
+Do not add new systems like employees, offices, publishers, burnout, save/load, contracts, or more market mechanics.
+
+This pass is focused only on making the release moment more engaging.
+
+Problem:
+The current release report is a tall scrollable modal that shows reviews, revenue, fans, diagnosis, and trend impact all at once. It works functionally, but it does not feel exciting. It feels like a static dashboard.
+
+Goal:
+Change the release flow into a staged game-like sequence:
+
+1. Review reveal phase
+2. Post-review reaction phase
+3. Week-by-week sales phase
+4. Final sales summary
+5. Next-game motivation
+
+The player should experience the release like an event, not like reading a report.
+
+1. Split release into phases
+
+Add releaseFlow state:
+
+const releaseFlow = {
+active: false,
+phase: "reviews" | "reaction" | "sales" | "summary",
+game: null,
+currentReviewIndex: 0,
+weeklySalesIndex: 0,
+salesWeeks: [],
+revealedReviews: []
+};
+
+When player clicks “Release Game”:
+
+* Do not instantly show final revenue.
+* Open the Review Phase first.
+* Blur/dim the garage behind the modal.
+* Keep the modal compact and centered.
+* No scrollable long report.
+
+2. Review reveal phase
+
+Show one review card at a time.
+
+Sequence:
+
+* Show outlet name first.
+* After short delay, reveal quote.
+* Then reveal score with a punchy animation.
+* Player can click “Next Review” or press Space/Enter.
+* After 4 reviews, show average score.
+
+Example outlets:
+
+* Byte Magazine
+* Arcade Gazette
+* PC Gamer UK
+* Digital Frontiers
+
+Each review card:
+
+* Outlet logo/icon placeholder
+* Outlet name
+* Quote
+* Score
+* Mood styling:
+
+  * bad: red
+  * average: amber
+  * good: green
+  * excellent: blue/purple
+
+Do not show revenue yet during reviews.
+
+3. Add emotional reaction after reviews
+
+After average score is revealed:
+Show a compact reaction screen for 2–3 seconds or until player clicks continue.
+
+Examples:
+
+* Score < 5:
+  “Critics were not impressed.”
+  Character looks disappointed.
+* Score 5–7:
+  “A decent first step.”
+  Character looks thoughtful.
+* Score 7–8.5:
+  “The game is getting attention.”
+  Character celebrates.
+* Score > 8.5:
+  “Breakout hit!”
+  Strong celebration animation.
+
+Update the developer character in the garage behind the modal:
+
+* bad score: slumped
+* average: neutral
+* good: celebrating
+* excellent: jumping/strong celebration
+
+4. Sales phase should happen week by week
+
+After reviews, begin sales simulation.
+
+Do not show total revenue immediately.
+
+Show:
+
+* Week 1 sales
+* Week 2 sales
+* Week 3 sales
+* etc.
+
+Each sales week should reveal sequentially:
+
+* Units sold this week
+* Revenue this week
+* Fans gained this week
+* Running total revenue
+* Running total fans
+
+Use a simple animated sales ticker:
+“Week 1: 138 units sold · $1,840 revenue · +22 fans”
+
+Each week should feel like a small event.
+
+Add buttons:
+
+* “Next Week”
+* “Auto-play Sales”
+* “Skip to Summary”
+
+Auto-play should reveal one week every 1–1.5 seconds.
+
+5. Sales curve
+
+Generate salesWeeks before the sales phase.
+
+Sales should depend on:
+
+* average review score
+* fans
+* platform sales multiplier
+* market trend multiplier
+* hype
+* bugs penalty
+* random variance
+
+Sales curve:
+
+* Week 1 is strongest
+* Week 2 lower
+* Week 3 lower
+* Continue for 4–8 weeks depending on score
+
+Example:
+
+* bad score: 3–4 week tail
+* average score: 4–5 week tail
+* good score: 6–7 week tail
+* excellent score: 8 week tail
+
+Revenue should be added to player money week by week, not all at once.
+
+Fans should also be added week by week.
+
+6. Visual sales feedback in garage
+
+During sales phase, show temporary garage feedback:
+
+* money bubbles near top-left cash card
+* fan bubbles near character
+* small newspaper/game box icon near desk
+* if sales are strong, character celebrates
+* if sales are weak, character looks worried
+
+Do not create a full dashboard.
+
+7. Final summary phase
+
+After sales weeks finish, show a compact final summary:
+
+* Game title
+* Average review score
+* Total units sold
+* Total revenue
+* Total fans gained
+* Profit/loss
+* Best score comparison
+* Best revenue comparison
+* Next target
+
+Also show:
+
+* “New best score!” if applicable
+* “Revenue record!” if applicable
+* “Fewer bugs than last game!” if applicable
+* “Matched market trend!” if applicable
+
+Keep “Why this score?” as a collapsible section or compact panel in this summary phase only.
+Do not show diagnosis during the review reveal phase.
+
+8. Improve pacing
+
+The release flow should take about:
+
+* 20–30 seconds if player clicks through normally
+* 8–12 seconds if player skips/auto-plays
+* never force the player to wait too long
+
+Add keyboard controls:
+
+* Space/Enter: continue
+* Escape: skip to summary only after reviews are revealed
+
+9. Remove scroll-heavy modal
+
+The release modal should not require vertical scrolling on desktop.
+
+Use phase-based screens instead:
+
+* reviews screen
+* sales screen
+* summary screen
+
+Each screen should fit within the viewport.
+
+On smaller screens:
+
+* allow vertical scroll only if absolutely necessary
+* keep primary action button sticky at bottom of modal
+
+10. Analytics
+
+Track:
+
+* release_flow_started
+* review_revealed
+* all_reviews_revealed
+* review_average_revealed
+* sales_phase_started
+* sales_week_revealed
+* sales_autoplay_started
+* sales_skipped
+* final_summary_viewed
+* release_flow_completed
+
+Update printSessionSummary() with:
+
+* average time spent in review phase
+* did player skip sales
+* did player auto-play sales
+* total sales weeks viewed
+* did player reach final summary
+
+11. Preserve existing systems
+
+Do not break:
+
+* existing scoring formula
+* diagnosis panel
+* trend bonus
+* combo memory
+* upgrade bonuses
+* next target
+* bubbles
+* analytics
+* objective pill
+* project pill
+
+This is a presentation/pacing refactor, not a mechanics rewrite.
+
+12. Deliverable
+
+Return the complete updated HTML file with embedded CSS and JS.
+It must run directly in browser.
+No external dependencies.
+No placeholder TODOs.
+No “next I can add...” summary instead of code.
+
+Success criteria:
+Releasing a game should feel like a mini-event:
+
+* first the player waits for reviews
+* then sees emotional reaction
+* then watches sales week by week
+* then gets a compact final summary
+* then understands what to improve in the next game

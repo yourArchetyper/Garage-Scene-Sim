@@ -21,6 +21,12 @@ const analytics = {
   firstUpgradeBought: null as number | null,
   firstObjectHover: null as number | null,
   firstModalOpen: null as number | null,
+  releaseFlowStartedAt: null as number | null,
+  reviewsRevealed: 0,
+  salesWeeksViewed: 0,
+  skippedSales: false,
+  autoPlayedSales: false,
+  reachedSummary: false,
   panelsOpened: 0,
   actionsUsed: 0,
   bubblesSpawned: 0,
@@ -188,6 +194,20 @@ interface Project { name:string;topic:Topic;genre:Genre;platform:Platform;design
 interface Reviewer { outlet:string;score:number;blurb:string; }
 interface ReviewResult { gameName:string;score:number;reviewers:Reviewer[];unitsSold:number;revenue:number;fansGained:number;trendMatched:boolean;trendName:string;trendRevenueBonus:number;trendScoreBonus:number; }
 interface SalesTail { gameName:string;score:number;weeksLeft:number;weeksTotal:number;baseRevenue:number;baseFans:number; }
+interface SalesWeekData { week:number;units:number;revenue:number;fans:number; }
+interface ReleaseFlowState {
+  phase:"reviews"|"reaction"|"sales"|"summary";
+  reviewIndex:number;
+  revealStep:number;
+  salesWeeks:SalesWeekData[];
+  salesIndex:number;
+  runningRevenue:number;
+  runningFans:number;
+  runningUnits:number;
+  autoPlay:boolean;
+  skippedSales:boolean;
+  reviewPhaseStartAt:number;
+}
 interface Bubble { id:number;text:string;color:string;svgX:number;svgY:number;born:number; }
 interface ReleasedGame { name:string;score:number;revenue:number;fansGained:number;bugs:number;year:number;week:number;topic:Topic;genre:Genre;platform:Platform; }
 interface DiscoveredCombo { topic:Topic;genre:Genre;platform:Platform;score:number;label:string; }
@@ -331,6 +351,23 @@ function scoreRecommendation(score:number): {text:string;color:string} {
   return {text:"Try a stronger topic/genre combo and fix bugs before releasing next time.",color:"text-red-400"};
 }
 
+function generateSalesWeeks(result:ReviewResult): SalesWeekData[] {
+  const numWeeks = result.score>=8.5?8:result.score>=7?6:result.score>=5?4:3;
+  const weights:number[] = [];
+  let w = 1.0;
+  for(let i=0;i<numWeeks;i++){
+    weights.push(w*(0.85+Math.random()*0.3));
+    w *= 0.56+Math.random()*0.12;
+  }
+  const total = weights.reduce((a,b)=>a+b,0);
+  return weights.map((wt,i)=>({
+    week:i+1,
+    revenue:Math.max(10,Math.round(result.revenue*wt/total)),
+    fans:Math.max(0,Math.round(result.fansGained*wt/total)),
+    units:Math.max(1,Math.round(result.unitsSold*wt/total)),
+  }));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -373,6 +410,15 @@ export default function GarageScene() {
   const [clickRipple,setClickRipple]     = useState<{id:number;x:number;y:number;color:string}|null>(null);
   const [missedClicks,setMissedClicks]   = useState(0);
   const missedClicksRef = useRef(0);
+
+  // ── Release flow state ──
+  const [releaseFlow,setReleaseFlow]   = useState<ReleaseFlowState|null>(null);
+  const [showDiagnosis,setShowDiagnosis] = useState(false);
+  const releaseFlowRef = useRef<ReleaseFlowState|null>(null);
+  const reviewResultRef = useRef<ReviewResult|null>(null);
+  const autoPlayIntervalRef = useRef<ReturnType<typeof setInterval>|null>(null);
+  releaseFlowRef.current = releaseFlow;
+  reviewResultRef.current = reviewResult;
 
   // ── Form ──
   const [formName,setFormName]         = useState(makeTitle);
@@ -460,6 +506,14 @@ export default function GarageScene() {
       console.log(`Changed form from defaults: ${analytics.formChangedFromDefaults}`);
       console.log(`Missed scene clicks before first project: ${analytics.missedClicksBeforeStart}`);
       console.groupEnd();
+      console.group("[Release Flow]");
+      console.log(`Release flow started: ${rel(analytics.releaseFlowStartedAt)}`);
+      console.log(`Reviews revealed: ${analytics.reviewsRevealed}`);
+      console.log(`Sales weeks viewed: ${analytics.salesWeeksViewed}`);
+      console.log(`Skipped sales: ${analytics.skippedSales}`);
+      console.log(`Auto-played sales: ${analytics.autoPlayedSales}`);
+      console.log(`Reached summary: ${analytics.reachedSummary}`);
+      console.groupEnd();
       console.group("[Market Trends]");
       console.log(`Trends seen this session: ${analytics.trendsSeen}`);
       console.log(`Games matching a trend: ${analytics.gamesMatchingTrend}`);
@@ -504,6 +558,56 @@ export default function GarageScene() {
     return ()=>window.removeEventListener("keydown",onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[showNewGame,formName,formTopic,formGenre,formPlatform]);
+
+  // ── Release flow: reaction phase auto-advance after 3 s ──
+  useEffect(()=>{
+    if(!releaseFlow||releaseFlow.phase!=="reaction") return;
+    const id = setTimeout(()=>{
+      if(releaseFlowRef.current?.phase==="reaction") handleStartSalesPhase();
+    },3000);
+    return ()=>clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[releaseFlow?.phase]);
+
+  // ── Release flow: autoplay sales weeks ──
+  useEffect(()=>{
+    if(!releaseFlow?.autoPlay||releaseFlow.phase!=="sales") return;
+    const id = setInterval(()=>{
+      const flow=releaseFlowRef.current;
+      if(!flow||!flow.autoPlay||flow.phase!=="sales"){clearInterval(id);return;}
+      if(flow.salesIndex>=flow.salesWeeks.length){clearInterval(id);return;}
+      handleNextSalesWeek();
+    },1300);
+    return ()=>clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[releaseFlow?.autoPlay,releaseFlow?.phase]);
+
+  // ── Release flow: keyboard navigation ──
+  useEffect(()=>{
+    if(!releaseFlow) return;
+    function onKey(e:KeyboardEvent){
+      if(e.isComposing) return;
+      const flow=releaseFlowRef.current;
+      if(!flow) return;
+      if(e.key===" "||e.key==="Enter"){
+        e.preventDefault();
+        if(flow.phase==="reviews"){
+          if(flow.reviewIndex<4) handleReviewAdvance();
+          else handleReviewContinue();
+        } else if(flow.phase==="reaction"){
+          handleStartSalesPhase();
+        } else if(flow.phase==="sales"){
+          handleNextSalesWeek();
+        }
+      }
+      if(e.key==="Escape"){
+        if(flow.phase==="sales"||flow.phase==="summary") handleSkipToSummary();
+      }
+    }
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[releaseFlow?.phase]);
 
   // ── Main simulation tick ──
   useEffect(()=>{
@@ -758,10 +862,8 @@ export default function GarageScene() {
       return [...prev,{topic:project.topic,genre:project.genre,platform:project.platform,score:result.score,label}];
     });
 
-    const weeksTotal = Math.floor(4+result.score*0.5);
-    const tailRev    = Math.floor(result.revenue*0.3/weeksTotal);
-    const tailFans   = Math.floor(result.fansGained*0.3/weeksTotal);
-    setSalesTail({gameName:project.name,score:result.score,weeksLeft:weeksTotal,weeksTotal,baseRevenue:tailRev,baseFans:tailFans});
+    // Generate week-by-week sales for the release flow
+    const salesWeeks = generateSalesWeeks(result);
 
     const newGame:ReleasedGame = {name:project.name,score:result.score,revenue:result.revenue,fansGained:result.fansGained,bugs:Math.floor(project.bugs),year,week,topic:project.topic,genre:project.genre,platform:project.platform};
     setHistory(h=>{
@@ -805,15 +907,30 @@ export default function GarageScene() {
     if(!analytics.flags.releasedFirstGame){ analytics.firstRelease = Date.now(); }
     if(!analytics.flags.firstGameCompleted) track("first_game_completed",{score:result.score});
     track("game_released",{name:project.name,score:result.score,revenue:result.revenue});
-    track("review_report_viewed",{});
-    track("diagnosis_panel_viewed",{factors:diag.length});
+    analytics.releaseFlowStartedAt = Date.now();
+    track("release_flow_started",{score:result.score,weeks:salesWeeks.length});
     console.log(`[release] ${project.name} | score: ${result.score} | trendMatched:${result.trendMatched}`);
+
+    // Initialise phased release flow
+    setReleaseFlow({
+      phase:"reviews",
+      reviewIndex:0,
+      revealStep:0,
+      salesWeeks,
+      salesIndex:0,
+      runningRevenue:0,
+      runningFans:0,
+      runningUnits:0,
+      autoPlay:false,
+      skippedSales:false,
+      reviewPhaseStartAt:Date.now(),
+    });
   }
 
-  function dismissReview(){
-    if(!reviewResult) return;
-    setCash(c=>c+Math.floor(reviewResult.revenue*0.7));
-    setFans(f=>f+Math.floor(reviewResult.fansGained*0.7));
+  function completeRelease(){
+    if(autoPlayIntervalRef.current){ clearInterval(autoPlayIntervalRef.current); autoPlayIntervalRef.current=null; }
+    setReleaseFlow(null);
+    setShowDiagnosis(false);
     setReviewResult(null);
     setProject(null);
     setPhase("idle");
@@ -822,6 +939,93 @@ export default function GarageScene() {
     // Objective transition
     if(tutorialStep==="release")  setTutorialStep("upgrade");
     if(tutorialStep==="beat")     setTutorialStep("done");
+  }
+
+  // ── Release flow handlers ──
+  function handleReviewAdvance(){
+    const flow = releaseFlowRef.current;
+    if(!flow || flow.phase!=="reviews") return;
+    if(flow.revealStep===0){
+      // Reveal the quote + score
+      analytics.reviewsRevealed++;
+      track("review_revealed",{index:flow.reviewIndex,outlet:reviewResultRef.current?.reviewers[flow.reviewIndex]?.outlet});
+      setReleaseFlow({...flow,revealStep:1});
+    } else {
+      const next = flow.reviewIndex+1;
+      if(next>=4){
+        // All 4 reviews shown — show average score
+        track("review_average_revealed",{avg:reviewResultRef.current?.score});
+        setReleaseFlow({...flow,reviewIndex:4,revealStep:0});
+      } else {
+        setReleaseFlow({...flow,reviewIndex:next,revealStep:0});
+      }
+    }
+  }
+
+  function handleReviewContinue(){
+    // Called after average score is shown — go to reaction
+    const flow = releaseFlowRef.current;
+    if(!flow||flow.reviewIndex<4) return;
+    track("all_reviews_revealed",{avgScore:reviewResultRef.current?.score});
+    const score = reviewResultRef.current?.score??0;
+    if(score>=7) setCelebrating(true);
+    setReleaseFlow({...flow,phase:"reaction"});
+  }
+
+  function handleStartSalesPhase(){
+    const flow = releaseFlowRef.current;
+    if(!flow) return;
+    track("sales_phase_started",{weeks:flow.salesWeeks.length});
+    setCelebrating(false);
+    setReleaseFlow({...flow,phase:"sales"});
+  }
+
+  function handleNextSalesWeek(){
+    const flow = releaseFlowRef.current;
+    if(!flow||flow.phase!=="sales") return;
+    if(flow.salesIndex>=flow.salesWeeks.length){
+      setReleaseFlow({...flow,phase:"summary",autoPlay:false});
+      track("final_summary_viewed",{});
+      analytics.reachedSummary=true;
+      return;
+    }
+    const week = flow.salesWeeks[flow.salesIndex];
+    setCash(c=>c+week.revenue);
+    setFans(f=>f+week.fans);
+    spawnBubble(`$${week.revenue.toLocaleString()}`,"#22c55e",deskTop.x,deskTop.y-20);
+    if(week.fans>0) spawnBubble(`+${week.fans} fans`,"#a855f7",charHead.x,charHead.y-22);
+    analytics.salesWeeksViewed++;
+    track("sales_week_revealed",{week:week.week,revenue:week.revenue,fans:week.fans});
+    const nextIdx = flow.salesIndex+1;
+    const newRev = flow.runningRevenue+week.revenue;
+    const newFans = flow.runningFans+week.fans;
+    const newUnits = flow.runningUnits+week.units;
+    if(nextIdx>=flow.salesWeeks.length){
+      setReleaseFlow({...flow,salesIndex:nextIdx,runningRevenue:newRev,runningFans:newFans,runningUnits:newUnits,phase:"summary",autoPlay:false});
+      track("final_summary_viewed",{});
+      analytics.reachedSummary=true;
+    } else {
+      setReleaseFlow({...flow,salesIndex:nextIdx,runningRevenue:newRev,runningFans:newFans,runningUnits:newUnits});
+    }
+  }
+
+  function handleSkipToSummary(){
+    const flow = releaseFlowRef.current;
+    if(!flow) return;
+    // Add all remaining week revenues at once
+    let remRev=0,remFans=0,remUnits=0;
+    for(let i=flow.salesIndex;i<flow.salesWeeks.length;i++){
+      remRev+=flow.salesWeeks[i].revenue;
+      remFans+=flow.salesWeeks[i].fans;
+      remUnits+=flow.salesWeeks[i].units;
+    }
+    if(remRev>0) setCash(c=>c+remRev);
+    if(remFans>0) setFans(f=>f+remFans);
+    analytics.skippedSales=true;
+    track("sales_skipped",{weeksRemaining:flow.salesWeeks.length-flow.salesIndex});
+    track("final_summary_viewed",{});
+    analytics.reachedSummary=true;
+    setReleaseFlow({...flow,phase:"summary",salesIndex:flow.salesWeeks.length,runningRevenue:flow.runningRevenue+remRev,runningFans:flow.runningFans+remFans,runningUnits:flow.runningUnits+remUnits,autoPlay:false,skippedSales:true});
   }
 
   function buyUpgrade(id:string,cost:number){
@@ -1606,9 +1810,12 @@ export default function GarageScene() {
         )}
       </AnimatePresence>
 
-      {/* ── REVIEW OVERLAY ────────────────────────────────────────────────── */}
+      {/* ── RELEASE FLOW OVERLAY ───────────────────────────────────────────── */}
       <AnimatePresence>
-        {reviewResult&&phase==="releasing"&&(()=>{
+        {releaseFlow&&reviewResult&&phase==="releasing"&&(()=>{
+          const flow = releaseFlow;
+          const sc = (s:number) => s>=8?"text-green-400":s>=6.5?"text-amber-400":s>=5?"text-orange-400":"text-red-400";
+          const OUTLET_ICONS = ["💾","🕹️","💻","🌐"];
           const prev = history.slice(0,-1);
           const prevBest    = prev.length>0?Math.max(...prev.map(g=>g.score)):0;
           const prevBestRev = prev.length>0?Math.max(...prev.map(g=>g.revenue)):0;
@@ -1617,128 +1824,267 @@ export default function GarageScene() {
           const isNewBestScore   = prev.length>0&&reviewResult.score>prevBest;
           const isNewBestRevenue = prev.length>0&&reviewResult.revenue>prevBestRev;
           const fewerBugs        = prevBugs!==null&&currBugs<prevBugs;
+
+          const reactionData = reviewResult.score>=8.5
+            ?{emoji:"🎉",title:"Breakout Hit!",sub:"Critics are raving. Players love it.",bg:"from-green-950 to-gray-950",ring:"border-green-700"}
+            :reviewResult.score>=7
+            ?{emoji:"😊",title:"The game is getting attention!",sub:"Strong reviews. Well done.",bg:"from-blue-950 to-gray-950",ring:"border-blue-700"}
+            :reviewResult.score>=5
+            ?{emoji:"😐",title:"A decent first step.",sub:"Shows promise. Some rough edges to smooth out.",bg:"from-amber-950 to-gray-950",ring:"border-amber-700"}
+            :{emoji:"😰",title:"Critics were not impressed.",sub:"Stronger combo and fewer bugs next time.",bg:"from-red-950 to-gray-950",ring:"border-red-800"};
+
           const rec = scoreRecommendation(reviewResult.score);
+          const currentReview = flow.reviewIndex<4?reviewResult.reviewers[flow.reviewIndex]:null;
+          const allSalesShown = flow.salesIndex>=flow.salesWeeks.length;
+
           return(
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
-              className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md">
-              <motion.div data-panel="review"
-                initial={{scale:0.85,y:30}} animate={{scale:1,y:0}} exit={{scale:0.85,y:30}}
-                transition={{type:"spring",damping:20}}
-                className="bg-gray-950 text-white rounded-2xl shadow-2xl p-6 w-[390px] max-h-[92vh] overflow-y-auto border border-gray-700"
+              className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+              <motion.div data-panel="release-flow"
+                key={flow.phase}
+                initial={{scale:0.88,opacity:0,y:24}} animate={{scale:1,opacity:1,y:0}} exit={{scale:0.88,opacity:0,y:24}}
+                transition={{type:"spring",damping:22,stiffness:280}}
+                className="bg-gray-950 text-white rounded-2xl shadow-2xl border border-gray-800 w-[380px] overflow-hidden"
               >
-                {/* Header */}
-                <motion.div initial={{opacity:0,y:-10}} animate={{opacity:1,y:0}} transition={{delay:0.1}} className="text-center mb-4">
-                  <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Game Released</div>
-                  <div className="text-xl font-black text-white">{reviewResult.gameName}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{project?.topic} · {project?.genre} · {project?.platform}</div>
-                  {/* Celebration badges */}
-                  {(isNewBestScore||isNewBestRevenue||fewerBugs)&&(
-                    <div className="flex flex-wrap gap-1.5 justify-center mt-2">
-                      {isNewBestScore  &&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white">⭐ New best score!</span>}
-                      {isNewBestRevenue&&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-green-600 text-white">💰 Revenue record!</span>}
-                      {fewerBugs       &&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-600 text-white">🐛 Fewer bugs!</span>}
-                    </div>
-                  )}
-                </motion.div>
 
-                {/* Review cards */}
-                <div className="flex flex-col gap-1.5 mb-4">
-                  {reviewResult.reviewers.map((r,i)=>(
-                    <motion.div key={i} initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} transition={{delay:0.25+i*0.18}}
-                      className="flex items-center gap-3 bg-gray-900 rounded-xl px-3 py-2">
-                      <div className={`text-base font-black w-10 text-right flex-shrink-0 ${r.score>=7.5?"text-green-400":r.score>=5.5?"text-amber-400":"text-red-400"}`}>{r.score}</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[11px] font-bold text-gray-300 truncate">{r.outlet}</div>
-                        <div className="text-[10px] text-gray-500 italic">{r.blurb}</div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                {/* ── PHASE: REVIEWS ── */}
+                {flow.phase==="reviews"&&(
+                  <div className="p-6">
+                    {/* Header */}
+                    <div className="text-center mb-4">
+                      <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Game Released</div>
+                      <div className="text-lg font-black text-white mt-0.5 truncate">{reviewResult.gameName}</div>
+                      <div className="text-[11px] text-gray-500">{project?.topic} · {project?.genre} · {project?.platform}</div>
+                    </div>
 
-                {/* Score summary */}
-                <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.0}}
-                  className="bg-gray-900 rounded-2xl p-4 mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <div className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Avg Score</div>
-                      <div className={`text-4xl font-black mt-0.5 ${reviewResult.score>=8?"text-green-400":reviewResult.score>=6.5?"text-amber-400":reviewResult.score>=5?"text-orange-400":"text-red-400"}`}>{reviewResult.score}</div>
-                      <div className="text-[10px] text-gray-600">/ 10</div>
+                    {/* Progress dots */}
+                    <div className="flex gap-1.5 justify-center mb-4">
+                      {[0,1,2,3].map(i=>(
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i<flow.reviewIndex?"w-6 bg-amber-400":i===flow.reviewIndex?"w-8 bg-white":"w-6 bg-gray-700"}`}/>
+                      ))}
                     </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-right">
-                      <div><div className="text-[9px] text-gray-500 uppercase">Units</div><div className="text-sm font-black text-white">{reviewResult.unitsSold.toLocaleString()}</div></div>
-                      <div><div className="text-[9px] text-gray-500 uppercase">Revenue</div><div className="text-sm font-black text-green-400">${reviewResult.revenue.toLocaleString()}</div></div>
-                      <div><div className="text-[9px] text-gray-500 uppercase">New Fans</div><div className="text-sm font-black text-violet-400">+{reviewResult.fansGained.toLocaleString()}</div></div>
-                      <div><div className="text-[9px] text-gray-500 uppercase">Sales Tail</div><div className="text-sm font-black text-blue-400">{salesTail?.weeksTotal??0}wks</div></div>
-                    </div>
+
+                    {/* Review card or average */}
+                    <AnimatePresence mode="wait">
+                      {flow.reviewIndex<4&&currentReview?(
+                        <motion.div key={`rev-${flow.reviewIndex}`}
+                          initial={{opacity:0,x:32}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-32}}
+                          transition={{duration:0.22}}
+                          className="bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-4 min-h-[110px]">
+                          <div className="flex items-center gap-2.5 mb-3">
+                            <span className="text-2xl leading-none">{OUTLET_ICONS[flow.reviewIndex]}</span>
+                            <div className="font-black text-sm text-white">{currentReview.outlet}</div>
+                          </div>
+                          <AnimatePresence>
+                            {flow.revealStep>=1&&(
+                              <motion.div initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{duration:0.25}}>
+                                <div className="text-[12px] text-gray-400 italic mb-3 leading-relaxed">"{currentReview.blurb}"</div>
+                                <motion.div initial={{scale:0.4}} animate={{scale:1}} transition={{type:"spring",damping:14,delay:0.1}}
+                                  className={`text-5xl font-black text-center ${sc(currentReview.score)}`}>
+                                  {currentReview.score}
+                                  <span className="text-lg text-gray-600 ml-1">/10</span>
+                                </motion.div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      ):(
+                        <motion.div key="avg"
+                          initial={{opacity:0,scale:0.85}} animate={{opacity:1,scale:1}}
+                          className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4 text-center">
+                          <div className="text-[11px] text-gray-500 uppercase font-black tracking-wider mb-2">Average Score</div>
+                          <motion.div initial={{opacity:0,scale:0.5}} animate={{opacity:1,scale:1}} transition={{type:"spring",damping:12}}
+                            className={`text-6xl font-black ${sc(reviewResult.score)}`}>
+                            {reviewResult.score}
+                          </motion.div>
+                          <div className="text-sm text-gray-600 mt-0.5">/ 10</div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* CTA button */}
+                    <button onClick={flow.reviewIndex<4?handleReviewAdvance:handleReviewContinue}
+                      className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-sm transition-colors active:scale-95">
+                      {flow.reviewIndex>=4?"See Reaction →":flow.revealStep===0?"Reveal Review ▼":"Next Review →"}
+                    </button>
+                    <div className="text-center text-[10px] text-gray-700 mt-2">Space / Enter to advance</div>
                   </div>
-                  {/* Prev vs best comparison */}
-                  {prev.length>0&&(
-                    <div className="mt-2 pt-2 border-t border-gray-800 flex gap-3 text-[10px]">
-                      <div>Score: <span className={`font-black ${isNewBestScore?"text-green-400":"text-gray-400"}`}>{reviewResult.score} {isNewBestScore?"↑ new best":"↓ "+prevBest+" best"}</span></div>
-                      <div>Rev: <span className={`font-black ${isNewBestRevenue?"text-green-400":"text-gray-400"}`}>${reviewResult.revenue.toLocaleString()} {isNewBestRevenue?"↑":"↓"}</span></div>
-                    </div>
-                  )}
-                  <div className="text-[10px] text-gray-600 text-center mt-2">70% revenue now · 30% over {salesTail?.weeksTotal??0} weeks</div>
-                </motion.div>
+                )}
 
-                {/* TREND IMPACT */}
-                <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:0.95}}
-                  className={`rounded-2xl p-3 mb-3 border ${reviewResult.trendMatched?"bg-amber-950/40 border-amber-700":"bg-gray-900 border-gray-800"}`}>
-                  {reviewResult.trendMatched?(
-                    <div className="flex items-start gap-2">
-                      <span className="text-lg leading-none mt-0.5">📈</span>
+                {/* ── PHASE: REACTION ── */}
+                {flow.phase==="reaction"&&(
+                  <div className={`p-6 bg-gradient-to-b ${reactionData.bg}`}>
+                    <div className={`border ${reactionData.ring} rounded-2xl p-6 text-center`}>
+                      <motion.div initial={{scale:0}} animate={{scale:1}} transition={{type:"spring",damping:10}}
+                        className="text-6xl mb-4">{reactionData.emoji}</motion.div>
+                      <motion.div initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} transition={{delay:0.18}}
+                        className="text-xl font-black text-white mb-2">{reactionData.title}</motion.div>
+                      <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.35}}
+                        className="text-sm text-gray-400">{reactionData.sub}</motion.div>
+                      <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:0.6}}
+                        className={`text-4xl font-black mt-4 ${sc(reviewResult.score)}`}>{reviewResult.score}<span className="text-base text-gray-500">/10</span></motion.div>
+                    </div>
+                    <motion.button initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.5}}
+                      onClick={handleStartSalesPhase}
+                      className="mt-4 w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-black text-sm active:scale-95">
+                      See Sales →
+                    </motion.button>
+                    <div className="text-center text-[10px] text-gray-600 mt-2">Auto-continuing in 3s…</div>
+                  </div>
+                )}
+
+                {/* ── PHASE: SALES ── */}
+                {flow.phase==="sales"&&(
+                  <div className="p-6">
+                    <div className="text-center mb-3">
+                      <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Sales Results</div>
+                      <div className="text-sm text-gray-400 mt-0.5 truncate">{reviewResult.gameName}</div>
+                    </div>
+
+                    {/* Weeks revealed so far */}
+                    <div className="flex flex-col gap-1 mb-3 max-h-[160px] overflow-y-auto">
+                      {flow.salesWeeks.slice(0,flow.salesIndex).map((w,i)=>(
+                        <motion.div key={i} initial={{opacity:0,x:-18}} animate={{opacity:1,x:0}}
+                          className="flex items-center justify-between bg-gray-900 rounded-xl px-3 py-1.5 text-xs">
+                          <span className="text-gray-500 w-12 flex-shrink-0">Week {w.week}</span>
+                          <span className="text-gray-300">{w.units.toLocaleString()} units</span>
+                          <span className="text-green-400 font-black">${w.revenue.toLocaleString()}</span>
+                          <span className="text-violet-400">+{w.fans} fans</span>
+                        </motion.div>
+                      ))}
+                      {!allSalesShown&&(
+                        <div className="text-center text-gray-700 text-[10px] py-1">
+                          {flow.salesWeeks.length-flow.salesIndex} week{flow.salesWeeks.length-flow.salesIndex!==1?"s":""} remaining…
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Running totals */}
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 mb-3 grid grid-cols-2 gap-3 text-center">
                       <div>
-                        <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider mb-0.5">Matched market trend</div>
-                        <div className="text-[11px] text-amber-200 font-semibold">{reviewResult.trendName}</div>
-                        <div className="text-[10px] text-amber-400/80 mt-0.5">
-                          {reviewResult.trendRevenueBonus>0&&`+$${reviewResult.trendRevenueBonus.toLocaleString()} estimated sales boost`}
-                          {reviewResult.trendScoreBonus>0&&reviewResult.trendRevenueBonus>0&&" · "}
-                          {reviewResult.trendScoreBonus>0&&`+${reviewResult.trendScoreBonus.toFixed(1)} review bonus`}
+                        <div className="text-[9px] text-gray-500 uppercase font-black">Revenue so far</div>
+                        <div className="text-xl font-black text-green-400">${flow.runningRevenue.toLocaleString()}</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] text-gray-500 uppercase font-black">Fans gained</div>
+                        <div className="text-xl font-black text-violet-400">+{flow.runningFans.toLocaleString()}</div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    {!allSalesShown?(
+                      <div className="flex gap-2">
+                        <button onClick={handleNextSalesWeek} disabled={flow.autoPlay}
+                          className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-black text-sm active:scale-95 transition-colors">
+                          Next Week →
+                        </button>
+                        <button onClick={()=>{ analytics.autoPlayedSales=true; track("sales_autoplay_started",{}); setReleaseFlow(f=>f?{...f,autoPlay:!f.autoPlay}:f); }}
+                          className={`px-4 py-2.5 rounded-xl font-black text-sm active:scale-95 transition-colors ${flow.autoPlay?"bg-gray-600 text-white":"bg-gray-800 text-gray-300 hover:bg-gray-700"}`}>
+                          {flow.autoPlay?"⏸":"▶"}
+                        </button>
+                        <button onClick={handleSkipToSummary}
+                          className="px-3 py-2.5 rounded-xl bg-gray-900 text-gray-500 hover:text-gray-300 text-xs active:scale-95 border border-gray-800">
+                          Skip
+                        </button>
+                      </div>
+                    ):(
+                      <button onClick={()=>setReleaseFlow(f=>f?{...f,phase:"summary",autoPlay:false}:f)}
+                        className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm active:scale-95">
+                        See Summary →
+                      </button>
+                    )}
+                    {!allSalesShown&&<div className="text-center text-[10px] text-gray-700 mt-2">Space / Enter for next week · Escape to skip</div>}
+                  </div>
+                )}
+
+                {/* ── PHASE: SUMMARY ── */}
+                {flow.phase==="summary"&&(
+                  <div className="p-6">
+                    {/* Title + score */}
+                    <div className="text-center mb-4">
+                      <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Final Summary</div>
+                      <div className="text-lg font-black text-white mt-0.5 truncate">{reviewResult.gameName}</div>
+                      <motion.div initial={{scale:0.5,opacity:0}} animate={{scale:1,opacity:1}} transition={{type:"spring",damping:12,delay:0.1}}
+                        className={`text-5xl font-black mt-2 ${sc(reviewResult.score)}`}>{reviewResult.score}
+                        <span className="text-base text-gray-600">/10</span>
+                      </motion.div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      {[
+                        {label:"Revenue",val:`$${flow.runningRevenue.toLocaleString()}`,cls:"text-green-400"},
+                        {label:"Fans",val:`+${flow.runningFans.toLocaleString()}`,cls:"text-violet-400"},
+                        {label:"Units",val:flow.runningUnits.toLocaleString(),cls:"text-white"},
+                      ].map(s=>(
+                        <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-2 text-center">
+                          <div className="text-[9px] text-gray-500 uppercase font-black">{s.label}</div>
+                          <div className={`text-sm font-black mt-0.5 ${s.cls}`}>{s.val}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Celebration badges */}
+                    {(isNewBestScore||isNewBestRevenue||fewerBugs||reviewResult.trendMatched)&&(
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {isNewBestScore  &&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white">⭐ New best score!</span>}
+                        {isNewBestRevenue&&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-green-600 text-white">💰 Revenue record!</span>}
+                        {fewerBugs       &&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-600 text-white">🐛 Fewer bugs!</span>}
+                        {reviewResult.trendMatched&&<span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-500 text-white">📈 Trend matched!</span>}
+                      </div>
+                    )}
+
+                    {/* Prev comparison */}
+                    {prev.length>0&&(
+                      <div className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 mb-3 flex gap-3 text-[11px]">
+                        <div>Score: <span className={`font-black ${isNewBestScore?"text-green-400":"text-gray-400"}`}>{reviewResult.score} {isNewBestScore?"↑ new best":"(best "+prevBest+")"}</span></div>
+                        <div>Rev: <span className={`font-black ${isNewBestRevenue?"text-green-400":"text-gray-400"}`}>${flow.runningRevenue.toLocaleString()} {isNewBestRevenue?"↑":""}</span></div>
+                      </div>
+                    )}
+
+                    {/* Why this score? — collapsible */}
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl mb-3 overflow-hidden">
+                      <button onClick={()=>setShowDiagnosis(d=>!d)}
+                        className="w-full flex items-center justify-between px-3 py-2.5 text-[11px] font-black text-gray-400 hover:text-gray-200">
+                        <span>🔍 Why this score?</span>
+                        <span className={`text-gray-600 transition-transform ${showDiagnosis?"rotate-180":""}`}>▾</span>
+                      </button>
+                      <AnimatePresence>
+                        {showDiagnosis&&(
+                          <motion.div initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}}
+                            className="overflow-hidden">
+                            <div className="px-3 pb-3 flex flex-col gap-1">
+                              {diagnosis.map((f,i)=>(
+                                <div key={i} className={`flex items-start gap-2 text-[11px] rounded-lg px-2 py-1.5 ${f.sentiment==="pos"?"bg-green-950/60 text-green-300":f.sentiment==="neg"?"bg-red-950/60 text-red-300":"bg-gray-800 text-gray-400"}`}>
+                                  <span className="text-sm leading-none mt-0.5 flex-shrink-0">{f.icon}</span>
+                                  <span>{f.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Next target */}
+                    {nextTarget&&(
+                      <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl">
+                        <span className="text-amber-400">🎯</span>
+                        <div>
+                          <div className="text-[9px] text-gray-500 uppercase font-black">Next target</div>
+                          <div className="text-xs font-black text-white">{nextTarget.text}</div>
                         </div>
                       </div>
-                    </div>
-                  ):(
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">📊</span>
-                      <div className="text-[10px] text-gray-500 font-semibold">
-                        {currentTrend?`No trend bonus — current trend: ${currentTrend.title}`:"No active market trend"}
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
+                    )}
+                    <div className={`text-[11px] mb-4 ${rec.color}`}>{rec.text}</div>
 
-                {/* DIAGNOSIS PANEL — "Why this score?" */}
-                <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:1.1}}
-                  className="bg-gray-900 rounded-2xl p-4 mb-3">
-                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">Why this score?</div>
-                  <div className="flex flex-col gap-1.5">
-                    {diagnosis.map((f,i)=>(
-                      <div key={i} className={`flex items-start gap-2 text-[11px] rounded-lg px-2 py-1.5 ${f.sentiment==="pos"?"bg-green-950/60 text-green-300":f.sentiment==="neg"?"bg-red-950/60 text-red-300":"bg-gray-800 text-gray-400"}`}>
-                        <span className="text-sm leading-none mt-0.5 flex-shrink-0">{f.icon}</span>
-                        <span>{f.text}</span>
-                      </div>
-                    ))}
+                    <button onClick={completeRelease} data-testid="button-back"
+                      className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm transition-colors active:scale-95">
+                      Back to the Garage
+                    </button>
                   </div>
-                </motion.div>
+                )}
 
-                {/* Next target + recommendation */}
-                <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{delay:1.25}}
-                  className="bg-gray-900 rounded-2xl p-4 mb-4">
-                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">Next game</div>
-                  {nextTarget&&(
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-amber-400 text-sm">🎯</span>
-                      <span className="text-sm font-black text-white">{nextTarget.text}</span>
-                    </div>
-                  )}
-                  <div className={`text-[11px] ${rec.color}`}>{rec.text}</div>
-                </motion.div>
-
-                <motion.button initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.4}}
-                  onClick={dismissReview} data-testid="button-back"
-                  className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black transition-colors active:scale-95">
-                  Back to the Garage
-                </motion.button>
               </motion.div>
             </motion.div>
           );
