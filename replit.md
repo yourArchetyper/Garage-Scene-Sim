@@ -1,6 +1,6 @@
-# [Project name]
+# Garage Scene
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A Game Dev Tycoon-inspired browser idle game where you build games from your garage, manage genre/topic combos, and grow your studio.
 
 ## Run & Operate
 

@@ -271,9 +271,10 @@ interface MarketTrendDef {
 }
 interface TrendEntry { gameName:string;matched:boolean;trendName:string;revenueImpact:number;scoreImpact:number; }
 
-interface Project { name:string;topic:Topic;genre:Genre;platform:Platform;design:number;tech:number;bugs:number;progress:number;research:number;hype:number; }
+interface Project { name:string;topic:Topic;genre:Genre;platform:Platform;design:number;tech:number;bugs:number;progress:number;research:number;hype:number;isSequel?:boolean;sequelOfId?:string;sequelOriginalWeek?:number;sequelOriginalYear?:number; }
 interface Reviewer { outlet:string;score:number;blurb:string; }
-interface ReviewResult { gameName:string;score:number;reviewers:Reviewer[];unitsSold:number;revenue:number;fansGained:number;trendMatched:boolean;trendName:string;trendRevenueBonus:number;trendScoreBonus:number; }
+interface ReviewResult { gameName:string;score:number;reviewers:Reviewer[];unitsSold:number;revenue:number;fansGained:number;trendMatched:boolean;trendName:string;trendRevenueBonus:number;trendScoreBonus:number;repeatPenalty:boolean;sequelTooSoon:boolean;sequelBonus:boolean; }
+interface ReviewOpts { repeatPenalty?:boolean;sequelTooSoon?:boolean;sequelBonus?:boolean; }
 interface SalesTail { gameName:string;score:number;weeksLeft:number;weeksTotal:number;baseRevenue:number;baseFans:number; }
 interface SalesWeekData { week:number;units:number;revenue:number;fans:number; }
 interface ReleaseFlowState {
@@ -336,7 +337,7 @@ function trendMatchesForm(topic:Topic, genre:Genre, platform:Platform, trend:Mar
   return false;
 }
 
-function generateReview(project:Project, upgrades:Set<string>, trend:MarketTrendDef|null=null): ReviewResult {
+function generateReview(project:Project, upgrades:Set<string>, trend:MarketTrendDef|null=null, opts:ReviewOpts={}): ReviewResult {
   const tm=TOPIC_MOD[project.topic], gm=GENRE_MOD[project.genre], pm=PLATFORM_MOD[project.platform];
   const combo=COMBO[project.genre]?.[project.topic]??1.0;
   const bugs=upgrades.has("whiteboard")?project.bugs*0.8:project.bugs;
@@ -347,12 +348,17 @@ function generateReview(project:Project, upgrades:Set<string>, trend:MarketTrend
   const hypeMod=1+(project.hype??0)*0.005;
   const raw=((design+tech)/2)*bugPen*combo*pm.fans/14*resMod*hypeMod;
 
+  // Repeat & sequel modifiers
+  const repeatPen  = opts.repeatPenalty  ? -0.4 : 0;
+  const sequelPen  = opts.sequelTooSoon  ? -0.4 : 0;
+  const sequelBon  = opts.sequelBonus    ?  0.2 : 0;
+
   // Market trend bonuses
   const matched = trend ? trendMatchesProject(project, trend) : false;
   const trendScoreBonus = (matched && trend?.reviewBonus) ? trend.reviewBonus : 0;
   const trendSalesMultiplier = (matched && trend) ? trend.salesMultiplier : 1.0;
 
-  const score=Math.max(1.0,Math.min(10.0,raw));
+  const score=Math.max(1.0,Math.min(10.0,raw+repeatPen+sequelPen+sequelBon));
   const scorePlusTrend=Math.max(1.0,Math.min(10.0,score+trendScoreBonus));
   const rounded=Math.round(scorePlusTrend*10)/10;
 
@@ -368,7 +374,8 @@ function generateReview(project:Project, upgrades:Set<string>, trend:MarketTrend
   const trendRevenueBonus=trendedRevenue-baseRevenue;
   const fansGained=Math.floor((rounded*26+Math.random()*16)*pm.fans);
   return{gameName:project.name,score:rounded,reviewers,unitsSold:baseSales,revenue:trendedRevenue,fansGained,
-    trendMatched:matched,trendName:trend?.title??"",trendRevenueBonus,trendScoreBonus};
+    trendMatched:matched,trendName:trend?.title??"",trendRevenueBonus,trendScoreBonus,
+    repeatPenalty:opts.repeatPenalty??false,sequelTooSoon:opts.sequelTooSoon??false,sequelBonus:opts.sequelBonus??false};
 }
 
 function buildDiagnosis(project:Project, result:ReviewResult, upgrades:Set<string>): DiagFactor[] {
@@ -414,11 +421,24 @@ function buildDiagnosis(project:Project, result:ReviewResult, upgrades:Set<strin
     factors.push({icon:"📈",text:`Matched current market trend — "${result.trendName}"`,sentiment:"pos"});
   }
 
+  // Repeat penalty
+  if (result.repeatPenalty) {
+    factors.push({icon:"🔁",text:"Same genre + topic as last game — critics expect something new (−0.4)",sentiment:"neg"});
+  }
+
+  // Sequel modifiers
+  if (result.sequelTooSoon) {
+    factors.push({icon:"⏱",text:"Sequel released too soon — fans weren't ready for another (−0.4)",sentiment:"neg"});
+  }
+  if (result.sequelBonus) {
+    factors.push({icon:"💻",text:"Sequel built on better hardware — quality boost (+0.2)",sentiment:"pos"});
+  }
+
   // Score context
   if (result.score >= 8)      factors.push({icon:"⭐",text:"Outstanding quality — players loved it",sentiment:"pos"});
   else if (result.score < 4)  factors.push({icon:"↓",text:"Low score — a stronger combo and fewer bugs can turn this around",sentiment:"neg"});
 
-  return factors.slice(0, 6);
+  return factors.slice(0, 7);
 }
 
 function buildNextTarget(result:ReviewResult, history:ReleasedGame[], fans:number): NextTarget {
@@ -531,6 +551,8 @@ export default function GarageScene() {
   const [formTopic,setFormTopic]       = useState<Topic>("Fantasy");
   const [formGenre,setFormGenre]       = useState<Genre>("RPG");
   const [formPlatform,setFormPlatform] = useState<Platform>("Home Computer");
+  const [formIsSequel,setFormIsSequel] = useState(false);
+  const [formSequelOf,setFormSequelOf] = useState<ReleasedGame|null>(null);
 
   // ── Tutorial / objectives ──
   const [tutorialStep,setTutorialStep] = useState<TutorialStep>("start");
@@ -1188,10 +1210,25 @@ export default function GarageScene() {
   }
 
   function randomizeForm(){
-    setFormTopic(TOPICS[~~(Math.random()*TOPICS.length)]);
-    setFormGenre(GENRES[~~(Math.random()*GENRES.length)]);
+    if(!formIsSequel){
+      setFormTopic(TOPICS[~~(Math.random()*TOPICS.length)]);
+      setFormGenre(GENRES[~~(Math.random()*GENRES.length)]);
+    }
     setFormPlatform(PLATFORMS[~~(Math.random()*PLATFORMS.length)]);
     setFormName(makeTitle());
+  }
+
+  function selectSequel(game:ReleasedGame){
+    setFormIsSequel(true);
+    setFormSequelOf(game);
+    setFormTopic(game.topic);
+    setFormGenre(game.genre);
+    setFormName(makeTitle()+" II");
+  }
+
+  function clearSequel(){
+    setFormIsSequel(false);
+    setFormSequelOf(null);
   }
 
   function startProject(){
@@ -1202,12 +1239,19 @@ export default function GarageScene() {
       analytics.startedProjectWhileGameSelling = true;
       track("player_started_new_project_while_previous_game_selling",{activeGames:activeMarketGamesRef.current.filter(g=>g.status==="active_on_market").length});
     }
-    const p:Project = {name:formName||makeTitle(),topic:formTopic,genre:formGenre,platform:formPlatform,design:0,tech:0,bugs:0,progress:0,research:0,hype:0};
+    const p:Project = {name:formName||makeTitle(),topic:formTopic,genre:formGenre,platform:formPlatform,design:0,tech:0,bugs:0,progress:0,research:0,hype:0,
+      isSequel:formIsSequel,
+      sequelOfId:formSequelOf?.id,
+      sequelOriginalWeek:formSequelOf?.week,
+      sequelOriginalYear:formSequelOf?.year,
+    };
     setProject(p);
     setPhase("developing");
     setFocusMode(null);
     setShowNewGame(false);
     setShowComputer(false);
+    setFormIsSequel(false);
+    setFormSequelOf(null);
     const isDefault = formTopic==="Fantasy"&&formGenre==="RPG"&&formPlatform==="Home Computer";
     const isSecond = history.length>0;
     if(!analytics.flags.startedFirstProject){
@@ -1232,7 +1276,17 @@ export default function GarageScene() {
     if(!project) return;
     if(!analytics.firstReleaseClicked) analytics.firstReleaseClicked = Date.now();
     const gameId = `game-${Date.now()}-${Math.floor(Math.random()*10000)}`;
-    const result = generateReview(project, upgrades, currentTrend);
+    // Compute repeat / sequel opts
+    const lastReleasedGame = historyRef.current.length>0?historyRef.current[historyRef.current.length-1]:null;
+    const repeatPenalty = !project.isSequel && lastReleasedGame!==null
+      && lastReleasedGame.genre===project.genre && lastReleasedGame.topic===project.topic;
+    const sequelAbsWeek = project.isSequel && project.sequelOriginalYear!==undefined && project.sequelOriginalWeek!==undefined
+      ? ((year-project.sequelOriginalYear)*52+(week-project.sequelOriginalWeek))
+      : undefined;
+    const sequelTooSoon  = sequelAbsWeek!==undefined && sequelAbsWeek<40;
+    const sequelBonus    = !!project.isSequel && upgrades.has("betterPC");
+    const reviewOpts:ReviewOpts = {repeatPenalty, sequelTooSoon, sequelBonus};
+    const result = generateReview(project, upgrades, currentTrend, reviewOpts);
     const diag   = buildDiagnosis(project, result, upgrades);
     const tgt    = buildNextTarget(result, history, fansRef.current);
     const reviewScores = result.reviewers.map(r=>r.score);
@@ -1575,6 +1629,16 @@ export default function GarageScene() {
   const bugCount       = Math.min(5,Math.ceil((project?.bugs??0)/8));
   const projectStatus  = !project?"":project.progress>=100?"Ready to Release":project.progress>=75?"Polishing":project.progress>=25?"In Development":"Planning";
   const lastGame       = history.length>0?history[history.length-1]:null;
+  // Repeat penalty preview (same genre+topic as last game, non-sequel)
+  const formRepeatPenalty = !formIsSequel && lastGame!==null && lastGame.genre===formGenre && lastGame.topic===formTopic;
+  // Sequel timing preview
+  const currentAbsWeek   = (year-1)*52+week;
+  const formSequelOrigAbsWeek = formSequelOf ? ((formSequelOf.year-1)*52+formSequelOf.week) : 0;
+  const formSequelWeeks       = formSequelOf ? (currentAbsWeek - formSequelOrigAbsWeek) : 0;
+  const formSequelTooSoon     = formIsSequel && formSequelOf && formSequelWeeks < 40;
+  const formSequelBetterEngine= formIsSequel && upgrades.has("betterPC");
+  // Games eligible for sequel (score >= 5, finished)
+  const sequelCandidates = history.filter(g=>g.score>=5.0);
   const marketFeedGames = activeMarketGames
     .filter(g=>g.status==="active_on_market"||g.weeklySales.length>0)
     .slice(-3)
@@ -3068,22 +3132,88 @@ export default function GarageScene() {
                 </div>
               )}
 
-              {/* Combo quality + discovered history */}
-              <div className={`text-[11px] px-2.5 py-1.5 rounded-lg mb-2 font-semibold ${formCombo>=1.4?"bg-green-50 text-green-700 border border-green-200":formCombo<=0.8?"bg-red-50 text-red-600 border border-red-200":"bg-gray-50 text-gray-500 border border-gray-100"}`}>
-                {formCombo>=1.4?`✓ Great combo! ${formTopic} × ${formGenre} works perfectly.`:formCombo<=0.8?`✗ Weak combo. ${formTopic} and ${formGenre} clash.`:`Decent combo for ${formTopic} ${formGenre}.`}
+              {/* Combo quality badge — shows multiplier */}
+              <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg mb-2 font-semibold text-[11px] ${formCombo>=1.4?"bg-green-50 text-green-700 border border-green-200":formCombo<=0.8?"bg-red-50 text-red-600 border border-red-200":formCombo>=1.1?"bg-blue-50 text-blue-700 border border-blue-200":"bg-gray-50 text-gray-500 border border-gray-100"}`}>
+                <span>
+                  {formCombo>=1.4?`✓ Great combo! ${formTopic} × ${formGenre}`:formCombo<=0.8?`✗ Weak combo — ${formTopic} & ${formGenre} clash`:formCombo>=1.1?`✓ Good combo — ${formTopic} × ${formGenre}`:`○ Decent combo — ${formTopic} × ${formGenre}`}
+                </span>
+                <span className={`ml-2 font-black text-[12px] tabular-nums ${formCombo>=1.4?"text-green-600":formCombo<=0.8?"text-red-500":formCombo>=1.1?"text-blue-600":"text-gray-400"}`}>
+                  {formCombo.toFixed(1)}×
+                </span>
               </div>
 
               {/* Discovered combo memory */}
               {priorCombo&&(
-                <div className={`text-[11px] px-2.5 py-1.5 rounded-lg mb-3 border flex items-center gap-2 ${priorCombo.label==="Great Match"?"bg-green-50 border-green-200 text-green-700":priorCombo.label==="Good Match"?"bg-blue-50 border-blue-200 text-blue-700":priorCombo.label==="Weak Match"?"bg-orange-50 border-orange-200 text-orange-700":"bg-red-50 border-red-200 text-red-600"}`}>
+                <div className={`text-[11px] px-2.5 py-1.5 rounded-lg mb-2 border flex items-center gap-2 ${priorCombo.label==="Great Match"?"bg-green-50 border-green-200 text-green-700":priorCombo.label==="Good Match"?"bg-blue-50 border-blue-200 text-blue-700":priorCombo.label==="Weak Match"?"bg-orange-50 border-orange-200 text-orange-700":"bg-red-50 border-red-200 text-red-600"}`}>
                   <span>🕹</span>
                   <span>You tried this before — scored <b>{priorCombo.score}/10</b> · <b>{priorCombo.label}</b></span>
                 </div>
               )}
 
+              {/* Repeat penalty warning */}
+              {formRepeatPenalty&&(
+                <div className="mb-2 px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-[10px] font-bold text-amber-700 flex items-center gap-1.5">
+                  <span>🔁</span>
+                  <span>Same as last game ({lastGame?.topic} × {lastGame?.genre}) — critics expect variety. Score −0.4</span>
+                </div>
+              )}
+
+              {/* Sequel timing warnings */}
+              {formIsSequel&&formSequelOf&&(
+                <div className={`mb-2 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 ${formSequelTooSoon?"border-red-300 bg-red-50 text-red-700":"border-green-300 bg-green-50 text-green-700"}`}>
+                  <span>{formSequelTooSoon?"⏱":"✓"}</span>
+                  <span>
+                    {formSequelTooSoon
+                      ?`Too soon! Only ${formSequelWeeks}w since "${formSequelOf.name}" — wait ${40-formSequelWeeks}w more. Score −0.4`
+                      :`Good timing — ${formSequelWeeks}w since "${formSequelOf.name}". Fans are ready!`
+                    }
+                  </span>
+                </div>
+              )}
+              {formSequelBetterEngine&&(
+                <div className="mb-2 px-2.5 py-1.5 rounded-lg border border-blue-300 bg-blue-50 text-[10px] font-bold text-blue-700 flex items-center gap-1.5">
+                  <span>💻</span>
+                  <span>Better PC upgrade gives this sequel a quality boost. Score +0.2</span>
+                </div>
+              )}
+
+              {/* Sequel picker */}
+              {sequelCandidates.length>0&&(
+                <div className="mb-3">
+                  <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">
+                    {formIsSequel?"Sequel Of (locked)":"Make a Sequel"}
+                  </div>
+                  {formIsSequel&&formSequelOf?(
+                    <div className="flex items-center justify-between px-2.5 py-2 rounded-lg border border-violet-200 bg-violet-50 text-xs">
+                      <div>
+                        <span className="font-black text-violet-800">{formSequelOf.name}</span>
+                        <span className="text-violet-500 ml-1.5">{formSequelOf.score}/10</span>
+                      </div>
+                      <button onClick={clearSequel} className="text-[9px] font-black text-violet-500 hover:text-red-500 transition-colors">✕ Remove</button>
+                    </div>
+                  ):(
+                    <div className="flex flex-col gap-1 max-h-[96px] overflow-y-auto pr-0.5">
+                      {sequelCandidates.slice().reverse().map(g=>(
+                        <button key={g.id} onClick={()=>selectSequel(g)}
+                          className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-gray-100 bg-gray-50 hover:bg-violet-50 hover:border-violet-200 text-[10px] text-left transition-colors active:scale-95">
+                          <span className="font-semibold text-gray-700 truncate max-w-[160px]">{g.name}</span>
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            <span className={`font-black ${g.score>=7?"text-green-600":g.score>=5?"text-amber-500":"text-gray-400"}`}>{g.score}/10</span>
+                            <span className="text-gray-300">·</span>
+                            <span className="text-violet-600 font-bold">Sequel →</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <button onClick={()=>setShowNewGame(false)} className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm font-semibold hover:bg-gray-50">Cancel</button>
-                <button onClick={startProject} data-testid="button-start" className="flex-2 px-8 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-sm transition-colors active:scale-95 shadow-md shadow-amber-200">▶ Start Game</button>
+                <button onClick={startProject} data-testid="button-start" className="flex-2 px-8 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-sm transition-colors active:scale-95 shadow-md shadow-amber-200">
+                  {formIsSequel?"🔁 Make Sequel":"▶ Start Game"}
+                </button>
               </div>
             </motion.div>
           </motion.div>
