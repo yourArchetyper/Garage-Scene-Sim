@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback, type CSSProperties } from "re
 import { motion, AnimatePresence } from "framer-motion";
 import { CharacterComposite, DEFAULT_CUSTOMIZATION, type CharacterCustomization, type CharWorkState } from "../components/CharacterComposite";
 import { CharacterPreviewDev } from "../components/CharacterPreviewDev";
-import { NewStudioSetup } from "../components/NewStudioSetup";
 import { createGameEventBus, type GameEvent, type WeeklySalesPoint } from "../simulation/gameEvents";
 import {
   createActiveMarketGame,
@@ -32,7 +31,9 @@ const DEBUG_HITBOXES = false;
 // Disabled: current front-facing seated sprites do not match the Level 1 CRT desk perspective.
 // Enable once dedicated side-facing sprites are available.
 const SHOW_DEVELOPER_SPRITE = false;
-// Character composite enabled after onboarding completes (driven by showOnboarding state).
+// Composite character from modular PNG layers.
+// Keep false until all layers are production-validated (visually correct 512×512, baseBody present).
+const SHOW_CHARACTER_CUSTOMIZATION = false;
 // Dev-only: isolated layer calibration panel. Never shown to players.
 const SHOW_CHARACTER_PREVIEW_DEV = true;
 
@@ -548,9 +549,6 @@ export default function GarageScene() {
   const [characterCustomization,setCharacterCustomization] = useState<CharacterCustomization>(DEFAULT_CUSTOMIZATION);
   const [showCustomPanel,setShowCustomPanel] = useState(false);
 
-  // ── Onboarding ──
-  const [showOnboarding,setShowOnboarding] = useState(true);
-  const [companyName,setCompanyName]       = useState("Your Studio");
 
   // ── Refs ──
   const phaseRef     = useRef(phase);
@@ -1920,7 +1918,7 @@ export default function GarageScene() {
                Current front-facing seated sprites are disabled because they do not match the room perspective.
           ─────────────────────────────────────────────────────────────────── */}
           {/* ── CHARACTER COMPOSITE (layered PNG system) ── */}
-          {!showOnboarding&&(
+          {SHOW_CHARACTER_CUSTOMIZATION&&(
             <div style={{
               position:"absolute",
               left:"72.5%",
@@ -2474,7 +2472,6 @@ export default function GarageScene() {
       {/* ── STATUS CARD (top-left) ─────────────────────────────────────────── */}
       <div className="absolute top-3 left-3 z-20 pointer-events-none">
         <div className="bg-white/90 backdrop-blur border border-gray-200 rounded-xl shadow px-3 py-2 text-xs font-mono w-[145px]">
-          <div className="text-[9px] font-sans font-bold text-orange-500 uppercase tracking-wider truncate mb-0.5" title={companyName}>{companyName}</div>
           <div className="text-[10px] font-sans font-bold text-gray-400 uppercase tracking-wider mb-1">Y{year} · W{week}</div>
           <div className="font-black text-green-700 text-sm">${cash.toLocaleString()}</div>
           <div className="text-violet-600 font-semibold">{fans.toLocaleString()} fans</div>
@@ -3447,7 +3444,7 @@ export default function GarageScene() {
       </AnimatePresence>
 
       {/* ── CHARACTER CUSTOMIZATION PANEL ─────────────────────────────────── */}
-      {!showOnboarding&&(
+      {SHOW_CHARACTER_CUSTOMIZATION&&(
         <div style={{position:"absolute",bottom:"3rem",right:"0.75rem",zIndex:50,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"0.5rem"}}>
           <button
             data-interactive="true"
@@ -3855,18 +3852,6 @@ export default function GarageScene() {
         </>
       )}
 
-      {/* ── NEW STUDIO SETUP (first-time onboarding) ───────────────────────── */}
-      <AnimatePresence>
-        {showOnboarding&&(
-          <NewStudioSetup
-            onComplete={(name, customization) => {
-              setCompanyName(name);
-              setCharacterCustomization(customization);
-              setShowOnboarding(false);
-            }}
-          />
-        )}
-      </AnimatePresence>
 
     </div>
   );

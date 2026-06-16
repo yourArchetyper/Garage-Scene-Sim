@@ -163,10 +163,16 @@ export function CharacterPreviewDev() {
     });
   };
 
-  const invalidLayers   = validationStatuses.filter(s => !s.valid);
-  const compositeReady  = validationStatuses.length > 0 && invalidLayers.length === 0;
-  const missingEnabled  = ALL_LAYER_KEYS.filter(k => !layerVis[k]);
-  const t               = transforms[activeLayer];
+  const invalidLayers      = validationStatuses.filter(s => !s.valid);
+  const compositeReady     = validationStatuses.length > 0 && invalidLayers.length === 0;
+  const missingEnabled     = ALL_LAYER_KEYS.filter(k => !layerVis[k]);
+  const t                  = transforms[activeLayer];
+
+  // baseBody exists as AI-generated PNGs but is NOT visually validated for production
+  const hasBaseBody         = true; // body_base_tone1-6.png exist
+  const checklistComplete   = CHECKLIST_ITEMS.length > 0 &&
+    CHECKLIST_ITEMS.every(item => !!checklist[item]);
+  const productionReady     = hasBaseBody && compositeReady && checklistComplete;
 
   return (
     <div style={S.panel}>
@@ -182,17 +188,46 @@ export function CharacterPreviewDev() {
             CHARACTER LAYER CALIBRATION
           </div>
 
-          {/* ── Base body layer status ── */}
+          {/* ── Production ready badge ── */}
           <div style={{
-            background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)",
+            background: productionReady ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)",
+            border: `1px solid ${productionReady ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)"}`,
             borderRadius: "0.4rem", padding: "0.4rem 0.5rem",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
-            <div style={{ fontSize: "7px", color: "#86efac", fontWeight: 700, marginBottom: "0.2rem" }}>
-              ✓ BASE BODY LAYER PRESENT
+            <span style={{ fontSize: "7px", color: "#9ca3af", fontWeight: 700 }}>PRODUCTION READY</span>
+            <span style={{ fontSize: "8px", fontWeight: 800, color: productionReady ? "#34d399" : "#f87171" }}>
+              {productionReady ? "YES" : "NO"}
+            </span>
+          </div>
+
+          {/* ── Asset Contract warning ── */}
+          <div style={{
+            background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.25)",
+            borderRadius: "0.4rem", padding: "0.45rem 0.5rem",
+          }}>
+            <div style={{ fontSize: "7px", color: "#fbbf24", fontWeight: 700, marginBottom: "0.3rem" }}>
+              ⚠ ASSET CONTRACT
             </div>
-            <div style={{ fontSize: "6.5px", color: "#9ca3af", lineHeight: 1.5 }}>
-              body_base_tone*.png (6 tones) — layer 2, auto-matches skin tone.
-              Calibrate using the BODY tab. Toggle visibility to check layering.
+            <div style={{ fontSize: "6.5px", color: "#9ca3af", lineHeight: 1.6 }}>
+              All layers must be drawn for the same 512×512 seated-at-PC pose.
+              Current assets may be technically 512×512 but still visually incompatible.
+            </div>
+            <div style={{ marginTop: "0.35rem", display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+              {[
+                { ok: true,  label: "baseBody exists (body_base_tone1-6.png)" },
+                { ok: false, label: "baseBody visually validated (not yet)" },
+                { ok: false, label: "Clothing fitted to seated torso" },
+                { ok: false, label: "Skin/head connects to neck" },
+                { ok: false, label: "Hands align with sleeves/keyboard" },
+                { ok: false, label: "Hair sits on head, no floating" },
+                { ok: false, label: "All checklist items confirmed" },
+              ].map(({ ok, label }) => (
+                <div key={label} style={{ fontSize: "6.5px", color: ok ? "#86efac" : "#6b7280", display: "flex", gap: "0.3rem" }}>
+                  <span>{ok ? "✓" : "✗"}</span>
+                  <span>{label}</span>
+                </div>
+              ))}
             </div>
           </div>
 

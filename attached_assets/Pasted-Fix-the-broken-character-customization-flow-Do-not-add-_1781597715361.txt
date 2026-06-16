@@ -1,0 +1,235 @@
+Fix the broken character customization flow.
+
+Do not add new gameplay systems.
+Do not add localStorage.
+Do not add save/load.
+Do not add employees, offices, publishers, custom engines, research trees, new contracts, or market systems.
+
+Current visible problem:
+The “Customize Your Dev” modal is showing to the player, but the character preview is broken. It shows floating hair, partial clothing/body fragments, and a large checker/white preview area instead of a coherent seated developer.
+
+This must not be player-facing yet.
+
+Goal:
+Hide broken customization from normal gameplay and convert it back into a dev-only calibration tool until the modular character assets are truly compatible.
+
+1. Disable player-facing customization completely
+
+Set:
+
+const SHOW_CHARACTER_CUSTOMIZATION = false;
+
+When false:
+
+* do not show the “Customize Your Dev” onboarding modal
+* do not show the Customize button
+* do not block the player before starting the game
+* do not show broken character preview to normal players
+
+The player should go directly to the garage/start flow.
+
+2. Keep only dev preview behind a dev flag
+
+Keep or add:
+
+const SHOW_CHARACTER_PREVIEW_DEV = true;
+
+The dev preview may show checkerboard background and layer controls, but only as a developer tool.
+
+It must not appear as part of normal gameplay onboarding.
+
+3. Remove customization from first-run flow
+
+Search for any logic that opens customization automatically:
+
+* on first load
+* before first project
+* when clicking Start
+* during onboarding
+* before “Start your first game”
+
+Disable that logic.
+
+The first user path should be:
+
+Garage → click computer → start project
+
+Not:
+Garage → broken customization modal → start
+
+4. Add strict composite validity check
+
+Before rendering any character composite, require all selected layers to be valid AND visually complete.
+
+Required layers:
+
+* chair
+* baseBody OR valid clothing-as-body fallback
+* skin/head
+* hands
+* hair
+
+If there is no baseBody layer, show a dev warning:
+
+“Invalid for production: no dedicated baseBody layer exists. Clothing is currently acting as body. Do not enable player customization until a proper seated-at-PC base body exists.”
+
+In normal gameplay:
+
+* invalid composite should render nothing
+* never render partial hair/clothing fragments
+
+5. Add manifest support for baseBody, but do not fake it
+
+Update the manifest schema to support:
+
+baseBody
+
+Preferred layer order:
+
+1. chair
+2. baseBody
+3. skin
+4. clothing
+5. hands
+6. hair
+
+If no real baseBody asset exists:
+
+* keep baseBody empty/missing
+* report it
+* do not create fake placeholder art
+* do not enable player customization
+
+6. Fix CharacterComposite layer behavior
+
+CharacterComposite must never render partial junk in production mode.
+
+Production mode:
+
+* if any required layer is missing/invalid, return null
+* no floating hair
+* no white boxes
+* no partial clothing fragments
+
+Dev mode:
+
+* allow partial layer visibility for debugging only
+* show warnings clearly
+* checkerboard background is allowed only inside dev preview
+
+7. Add “Asset Contract” warning in dev preview
+
+At the top of CharacterPreviewDev, show:
+
+“Character customization requires all layers to be drawn for the same 512×512 seated-at-PC pose. Current assets may be technically 512×512 but still visually incompatible.”
+
+Then show checklist:
+
+* chair aligns with seated pose
+* base body exists
+* clothing fits torso
+* skin/head connects to neck
+* hands align with sleeves/keyboard
+* hair sits on head
+* no floating pieces
+
+8. Add visual compatibility status
+
+In dev preview, compute and display:
+
+Production ready: YES / NO
+
+It should be NO unless:
+
+* baseBody exists
+* all default layers exist
+* all default layers are 512×512
+* no layer fails to load
+* all required layer toggles are enabled
+* manual checklist is completed
+
+Do not allow SHOW_CHARACTER_CUSTOMIZATION to be enabled automatically.
+
+9. Keep calibration tools
+
+Keep:
+
+* layer visibility toggles
+* x/y offset controls
+* scale controls
+* rotation controls
+* opacity controls
+* Copy Calibration JSON
+
+These are dev-only.
+
+10. Remove broken modal CTA
+
+Remove or hide:
+
+* “Customize Your Dev” modal from normal play
+* “Start fg 🚀” or any malformed customization-start button
+* any player-facing character customization CTA
+
+Do not show customization until the composite is production-ready.
+
+11. Preserve the actual game
+
+Do not break:
+
+* Level 1 room
+* top-left HUD
+* top-right objective pill
+* computer click
+* project creation
+* development loop
+* bubbles
+* review reveal
+* live sales
+* global menu
+* upgrades
+* contracts
+* market trends
+* playtest mode
+* printSessionSummary()
+* runSmokeTest()
+
+12. Typecheck
+
+Run:
+
+pnpm run typecheck
+
+Fix all errors.
+
+13. Manual QA
+
+Normal gameplay:
+
+* fresh reload does NOT show Customize Your Dev modal
+* no floating hairpiece appears
+* no checkerboard preview appears
+* no Customize button appears
+* player can click computer and start first game
+
+Dev preview:
+
+* dev preview can still be opened if SHOW_CHARACTER_PREVIEW_DEV is true
+* checkerboard appears only in dev preview
+* layer toggles work
+* calibration controls work
+* missing baseBody warning appears
+* Production ready says NO if baseBody is missing
+* Copy Calibration JSON works
+
+14. Report
+
+When done, report:
+
+* whether player-facing customization was disabled
+* whether first-run customization modal was removed
+* whether baseBody exists
+* whether production-ready status is YES or NO
+* whether dev preview remains available
+* typecheck result
+* manual QA result
