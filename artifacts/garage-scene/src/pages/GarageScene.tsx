@@ -28,9 +28,8 @@ declare global {
 
 const PLAYTEST_MODE = true;
 const DEBUG_HITBOXES = false;
-// Disabled: current front-facing seated sprites do not match the Level 1 CRT desk perspective.
-// Enable once dedicated side-facing sprites are available.
-const SHOW_DEVELOPER_SPRITE = false;
+// Side/back-facing seated sprite — matches Level 1 isometric CRT desk perspective.
+const SHOW_DEVELOPER_SPRITE = true;
 // Composite character from modular PNG layers.
 // Keep false until all layers are production-validated (visually correct 512×512, baseBody present).
 const SHOW_CHARACTER_CUSTOMIZATION = false;
@@ -1598,12 +1597,10 @@ export default function GarageScene() {
     ? "thinking"
     : "idle";
   const developerSprite = getDeveloperSprite(developerSpriteState, typingFrame);
-  // Developer anchor: fixed percentage position so all sprite states stay stable
-  // TODO: Replace with a dedicated side-facing "developer at CRT desk" sprite.
-  // The current front-facing seated sprite is temporary and may be hidden if it breaks scene perspective.
-  const devLeft  = developerSpriteState === "celebrating" ? 70   : 72.5;
-  const devTop   = developerSpriteState === "celebrating" ? 47   : 49;
-  const devWidth = developerSpriteState === "celebrating" ? 12.5 : 10.5;
+  // Developer anchor — back/side-facing seated pose, positioned at the CRT desk
+  const devLeft  = developerSpriteState === "celebrating" ? 61.5 : 63;
+  const devTop   = developerSpriteState === "celebrating" ? 36   : 40;
+  const devWidth = developerSpriteState === "celebrating" ? 20   : 18;
   // Hitbox helper — args are percentages of scene wrapper
   const sceneHitboxStyle = (leftPct:number,topPct:number,widthPct:number,heightPct:number,z=12): CSSProperties => ({
     left:`${leftPct}%`,
