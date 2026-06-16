@@ -1,3 +1,4 @@
 - [Cinematic release flow](cinematic-release-flow.md) — reviews auto-advance via useEffect timeouts, score rolls via interval in separate effect; no manual clicks required
 - [ReleaseFlowState shape](cinematic-release-flow.md) — uses `reviewSubPhase:"entering"|"rolling"|"settled"` + `salesSpeed:1|2` + `salesPaused` instead of old `revealStep`/`autoPlay`
 - [Phase 1 scoring modifiers](phase1-scoring.md) — repeat penalty −0.4, sequel-too-soon −0.4, sequel-better-engine +0.2; opts passed as 4th arg to generateReview()
+- [Genre popularity curves](genre-popularity.md) — sinusoidal sales multiplier per genre (0.75–1.28×), applied to units/fans only (not score), shown live in New Game form buttons

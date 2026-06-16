@@ -173,6 +173,29 @@ const GENRE_MOD: Record<Genre,{dw:number;tw:number;bugSens:number}> = {
   Simulation:{dw:1.0,tw:1.3,bugSens:1.1},Action:{dw:1.2,tw:1.1,bugSens:1.3},
   Adventure:{dw:1.3,tw:0.9,bugSens:0.9},
 };
+
+// Genre popularity wave — each genre cycles through hot/cold periods independently
+// period = cycle length in weeks, phase = offset so genres peak at different times
+const GENRE_POP: Record<Genre,{period:number;phase:number;amplitude:number}> = {
+  RPG:        {period:96,  phase:0,  amplitude:0.25},
+  Strategy:   {period:80,  phase:24, amplitude:0.20},
+  Simulation: {period:112, phase:48, amplitude:0.22},
+  Action:     {period:72,  phase:16, amplitude:0.28},
+  Adventure:  {period:88,  phase:60, amplitude:0.20},
+};
+
+function genrePopularityMult(genre:Genre, absWeek:number): number {
+  const c = GENRE_POP[genre];
+  return Math.round((1.0 + c.amplitude * Math.sin((2*Math.PI*(absWeek-c.phase))/c.period))*100)/100;
+}
+
+function genrePopLabel(mult:number): {label:string;icon:string;cls:string;barCls:string} {
+  if(mult>=1.2) return {label:"Hot",    icon:"🔥",cls:"text-red-500",   barCls:"bg-red-500"};
+  if(mult>=1.1) return {label:"Rising", icon:"↑", cls:"text-orange-500",barCls:"bg-orange-400"};
+  if(mult>=0.95)return {label:"Steady", icon:"—", cls:"text-gray-400",  barCls:"bg-gray-400"};
+  if(mult>=0.85)return {label:"Cooling",icon:"↓", cls:"text-blue-500",  barCls:"bg-blue-400"};
+  return           {label:"Cold",    icon:"🧊",cls:"text-blue-700",  barCls:"bg-blue-700"};
+}
 const PLATFORM_MOD: Record<Platform,{fans:number;sales:number;techReq:number}> = {
   "Home Computer":{fans:1.0,sales:1.0,techReq:0},
   "Arcade Cabinet":{fans:1.3,sales:1.5,techReq:25},
@@ -273,8 +296,8 @@ interface TrendEntry { gameName:string;matched:boolean;trendName:string;revenueI
 
 interface Project { name:string;topic:Topic;genre:Genre;platform:Platform;design:number;tech:number;bugs:number;progress:number;research:number;hype:number;isSequel?:boolean;sequelOfId?:string;sequelOriginalWeek?:number;sequelOriginalYear?:number; }
 interface Reviewer { outlet:string;score:number;blurb:string; }
-interface ReviewResult { gameName:string;score:number;reviewers:Reviewer[];unitsSold:number;revenue:number;fansGained:number;trendMatched:boolean;trendName:string;trendRevenueBonus:number;trendScoreBonus:number;repeatPenalty:boolean;sequelTooSoon:boolean;sequelBonus:boolean; }
-interface ReviewOpts { repeatPenalty?:boolean;sequelTooSoon?:boolean;sequelBonus?:boolean; }
+interface ReviewResult { gameName:string;score:number;reviewers:Reviewer[];unitsSold:number;revenue:number;fansGained:number;trendMatched:boolean;trendName:string;trendRevenueBonus:number;trendScoreBonus:number;repeatPenalty:boolean;sequelTooSoon:boolean;sequelBonus:boolean;genrePopMult:number; }
+interface ReviewOpts { repeatPenalty?:boolean;sequelTooSoon?:boolean;sequelBonus?:boolean;absWeek?:number; }
 interface SalesTail { gameName:string;score:number;weeksLeft:number;weeksTotal:number;baseRevenue:number;baseFans:number; }
 interface SalesWeekData { week:number;units:number;revenue:number;fans:number; }
 interface ReleaseFlowState {
@@ -368,14 +391,16 @@ function generateReview(project:Project, upgrades:Set<string>, trend:MarketTrend
     const blurbSet=rs>=7?REVIEW_BLURBS.high:rs>=5?REVIEW_BLURBS.mid:REVIEW_BLURBS.low;
     return{outlet:o.name,score:rs,blurb:blurbSet[~~(Math.random()*blurbSet.length)]};
   });
-  const baseSales=Math.floor((rounded*65+Math.random()*55)*pm.sales);
+  const popMult = opts.absWeek!==undefined ? genrePopularityMult(project.genre, opts.absWeek) : 1.0;
+  const baseSales=Math.floor((rounded*65+Math.random()*55)*pm.sales*popMult);
   const baseRevenue=Math.floor(baseSales*(4+rounded*2));
   const trendedRevenue=Math.floor(baseRevenue*trendSalesMultiplier);
   const trendRevenueBonus=trendedRevenue-baseRevenue;
-  const fansGained=Math.floor((rounded*26+Math.random()*16)*pm.fans);
+  const fansGained=Math.floor((rounded*26+Math.random()*16)*pm.fans*Math.sqrt(popMult));
   return{gameName:project.name,score:rounded,reviewers,unitsSold:baseSales,revenue:trendedRevenue,fansGained,
     trendMatched:matched,trendName:trend?.title??"",trendRevenueBonus,trendScoreBonus,
-    repeatPenalty:opts.repeatPenalty??false,sequelTooSoon:opts.sequelTooSoon??false,sequelBonus:opts.sequelBonus??false};
+    repeatPenalty:opts.repeatPenalty??false,sequelTooSoon:opts.sequelTooSoon??false,sequelBonus:opts.sequelBonus??false,
+    genrePopMult:popMult};
 }
 
 function buildDiagnosis(project:Project, result:ReviewResult, upgrades:Set<string>): DiagFactor[] {
@@ -419,6 +444,17 @@ function buildDiagnosis(project:Project, result:ReviewResult, upgrades:Set<strin
   // Market trend
   if (result.trendMatched) {
     factors.push({icon:"📈",text:`Matched current market trend — "${result.trendName}"`,sentiment:"pos"});
+  }
+
+  // Genre popularity impact on sales
+  if (result.genrePopMult >= 1.2) {
+    factors.push({icon:"🔥",text:`${project.genre} is hot right now — boosted sales (×${result.genrePopMult.toFixed(2)})`,sentiment:"pos"});
+  } else if (result.genrePopMult >= 1.1) {
+    factors.push({icon:"↑",text:`${project.genre} is rising in popularity — slightly better sales (×${result.genrePopMult.toFixed(2)})`,sentiment:"pos"});
+  } else if (result.genrePopMult <= 0.8) {
+    factors.push({icon:"🧊",text:`${project.genre} is cold right now — sales hit harder (×${result.genrePopMult.toFixed(2)})`,sentiment:"neg"});
+  } else if (result.genrePopMult <= 0.9) {
+    factors.push({icon:"↓",text:`${project.genre} is cooling off — slightly lower sales (×${result.genrePopMult.toFixed(2)})`,sentiment:"neg"});
   }
 
   // Repeat penalty
@@ -1285,7 +1321,7 @@ export default function GarageScene() {
       : undefined;
     const sequelTooSoon  = sequelAbsWeek!==undefined && sequelAbsWeek<40;
     const sequelBonus    = !!project.isSequel && upgrades.has("betterPC");
-    const reviewOpts:ReviewOpts = {repeatPenalty, sequelTooSoon, sequelBonus};
+    const reviewOpts:ReviewOpts = {repeatPenalty, sequelTooSoon, sequelBonus, absWeek:(year-1)*52+week};
     const result = generateReview(project, upgrades, currentTrend, reviewOpts);
     const diag   = buildDiagnosis(project, result, upgrades);
     const tgt    = buildNextTarget(result, history, fansRef.current);
@@ -1639,6 +1675,11 @@ export default function GarageScene() {
   const formSequelBetterEngine= formIsSequel && upgrades.has("betterPC");
   // Games eligible for sequel (score >= 5, finished)
   const sequelCandidates = history.filter(g=>g.score>=5.0);
+  // Genre popularity for current week
+  const formGenrePopMult = genrePopularityMult(formGenre, currentAbsWeek);
+  const formGenrePopInfo = genrePopLabel(formGenrePopMult);
+  // Popularity for all genres (for button indicators)
+  const allGenrePopMults = Object.fromEntries(GENRES.map(g=>[g, genrePopularityMult(g, currentAbsWeek)])) as Record<Genre,number>;
   const marketFeedGames = activeMarketGames
     .filter(g=>g.status==="active_on_market"||g.weeklySales.length>0)
     .slice(-3)
@@ -3092,21 +3133,34 @@ export default function GarageScene() {
                 </div>
               </div>
 
-              <div className="mb-3">
+              <div className="mb-1">
                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Genre</span>
                 <div className="grid grid-cols-3 gap-1">
                   {GENRES.map(g=>{
                     const isTrendingGenre = currentTrend&&(currentTrend.type==="genre"&&currentTrend.target===g||(currentTrend.type==="combo"&&currentTrend.genre===g));
+                    const gpMult = allGenrePopMults[g];
+                    const gpInfo = genrePopLabel(gpMult);
+                    const isLocked = formIsSequel&&formSequelOf;
                     return(
-                      <button key={g} onClick={()=>setFormGenre(g)}
-                        className={`relative text-[11px] py-1.5 px-1 rounded-lg border font-semibold transition-all active:scale-95 ${formGenre===g?"bg-blue-400 border-blue-500 text-white shadow-sm":"bg-gray-50 border-gray-200 text-gray-600 hover:bg-blue-50"}`}>
-                        {g}
+                      <button key={g} onClick={()=>!isLocked&&setFormGenre(g)}
+                        className={`relative flex flex-col items-center text-[11px] pt-1.5 pb-1 px-1 rounded-lg border font-semibold transition-all ${isLocked?"cursor-default opacity-70":""} ${!isLocked?"active:scale-95":""} ${formGenre===g?"bg-blue-400 border-blue-500 text-white shadow-sm":"bg-gray-50 border-gray-200 text-gray-600 hover:bg-blue-50"}`}>
+                        <span className="leading-tight">{g}</span>
+                        <span className={`text-[8px] font-black leading-tight mt-0.5 ${formGenre===g?"text-white/80":gpInfo.cls}`}>
+                          {gpInfo.icon} {gpInfo.label}
+                        </span>
                         {isTrendingGenre&&<span className="absolute -top-1.5 -right-1 text-[7px] font-black bg-orange-400 text-white rounded-full px-1 leading-tight">↑</span>}
                       </button>
                     );
                   })}
                 </div>
+                {/* Genre popularity summary for selected genre */}
+                <div className={`mt-1.5 flex items-center justify-between px-2 py-1 rounded-lg text-[10px] font-semibold ${formGenrePopMult>=1.1?"bg-orange-50 border border-orange-200 text-orange-700":formGenrePopMult<=0.9?"bg-blue-50 border border-blue-200 text-blue-700":"bg-gray-50 border border-gray-100 text-gray-500"}`}>
+                  <span>{formGenrePopInfo.icon} <b>{formGenre}</b> demand is <b>{formGenrePopInfo.label.toLowerCase()}</b> this season</span>
+                  <span className={`font-black tabular-nums ${formGenrePopInfo.cls}`}>{`${formGenrePopMult>=1?"+":""}${Math.round((formGenrePopMult-1)*100)}% sales`}</span>
+                </div>
               </div>
+
+              <div className="mb-3"/>
 
               <div className="mb-3">
                 <span className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Platform</span>
